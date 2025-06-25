@@ -1,0 +1,959 @@
+Lottery Pool,Last_Name,First_Name,Age,Location,Tickets,Previous_Applications,Previous_Finishes,Extra_Trailwork_Points,Volunteer_Points,Finish Multiplier,Tickets
+F,Payne,Helen,27,"Goleta, CA, US",4.0,1,0,0,0,0,4.0
+F,Janardhanan,Shruti,23,"Santa Clara, CA, US",2.0,0,0,0,0,0,2.0
+M,Wood,David,38,"Golden, CO, US",2.0,0,0,0,0,0,2.0
+F,West-Hoover,Sarah,54,"Parker, CO, US",2.0,0,0,0,0,0,2.0
+M,Coffman,Neil,37,"Cedar Rapids, IA, US",4.0,1,0,0,0,0,4.0
+M,Thompson,Marshall,37,"Morrison, CO, US",2.0,0,0,0,0,0,2.0
+F,Cogswell,Meghan,45,"Colorado Springs, CO, US",4.0,0,2,0,0,1,4.0
+M,Barker,Brandon,43,"Los Angeles, CA, US",2.8,0,1,0,0,0.5,2.8
+M,Small,Gabriel,39,"Louisville, CO, US",2.0,0,0,0,0,0,2.0
+M,Pedatella,Nick,39,"Boulder, CO, US",8.0,2,0,0,0,0,8.0
+M,Sheffery,Harold,32,"New York, NY, US",2.0,0,0,0,0,0,2.0
+M,Fields,Yatika,44,"Tulsa, OK, US",5.7,1,1,0,0,0.5,5.7
+M,Allen,Noah,22,"Basalt, CO, US",4.0,1,0,0,0,0,4.0
+M,Bogus,Andrew,35,"Los Angeles, CA, US",4.0,1,0,0,0,0,4.0
+M,Miron,Diego,54,"Delray Beach, FL, US",2.0,0,0,0,0,0,2.0
+M,Brink,Joshua,39,"Gunnison, CO, US",22.6,3,1,0,0,0.5,22.6
+M,Murphy,Noah,28,"Dallas, TX, US",2.0,0,0,0,0,0,2.0
+M,Fallon,Collin,44,"Austin, TX, US",4.0,1,0,0,0,0,4.0
+M,Packard,Wayne,38,"Bear, DE, US",2.0,0,0,0,0,0,2.0
+F,Perez,Melissa,37,"La Verne, CA, US",2.0,0,0,0,0,0,2.0
+F,Norton,Kelly,38,"Manitowoc, WI, US",2.0,0,0,0,0,0,2.0
+M,Porter,Blake,41,"Edmond, OK, US",2.0,0,0,0,0,0,2.0
+M,Schild,James,41,"Morrison, CO, US",14.7,2,1,0,4.5,0.5,14.7
+F,Bauer,Becki Lynn,47,"Littleton, CO, US",2.0,0,0,0,0,0,2.0
+M,Theriot,David,50,"Owasso, OK, US",2.0,0,0,0,0,0,2.0
+M,Evans,John,39,"Charleston, WV, US",2.0,0,0,0,0,0,2.0
+M,Mary,William,31,"Montréal, QC, CA",4.0,1,0,0,0,0,4.0
+F,Muthig,Codie,27,"Salt Lake City, UT, US",2.0,0,0,0,0,0,2.0
+M,Richie,Greg,55,"Mount Horeb, WI, US",2.0,0,0,0,0,0,2.0
+M,Fox,Jake,31,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Gombeski,Christopher,38,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Otter,Andrew,31,"Crested Butte, CO, US",8.0,2,0,0,0,0,8.0
+M,Mitchell,Michael,26,"Denver, CO, US",4.0,1,0,0,0,0,4.0
+M,Hartwig,Ryan,46,"Twentynine Palms, CA, US",2.0,0,0,0,0,0,2.0
+M,Scott,John,59,"Leadville, CO, US",8.0,2,0,0,0,0,8.0
+F,Richter,Abby,35,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Willman,Jon,39,"Las Vegas, NV, US",4.0,1,0,0,0,0,4.0
+M,Henry,David,40,"Bozeman, MT, US",2.0,0,0,0,0,0,2.0
+M,Parnell,Chase,40,"Bend, OR, US",2.0,0,0,0,0,0,2.0
+M,Byar,Mika,25,"Marquette, MI, US",2.0,0,0,0,0,0,2.0
+M,Richter,Jake,44,"Weatherford, TX, US",2.8,0,1,0,0,0.5,2.8
+M,Haynes,Jesse,52,"Trabuco Canyon, CA, US",2.0,0,0,0,0,0,2.0
+F,Williams,Judy,63,"New Carlisle, OH, US",2.0,0,0,0,0,0,2.0
+M,Raguet-Schofield,Rob,46,"Fort Collins, CO, US",8.0,2,0,0,0,0,8.0
+F,Keddie,Emily,38,"Bend, OR, US",2.0,0,0,0,0,0,2.0
+M,Overton,Cd,54,"Batesville, MS, US",4.0,1,0,0,0,0,4.0
+M,Dube,Paul,42,"Peace River, AB, CA",8.0,2,0,0,0,0,8.0
+M,Meding,Trevor,44,"Sugar Land, TX, US",2.8,0,1,0,0,0.5,2.8
+M,Hayashi Jones,Ian,28,"San Francisco, CA, US",2.0,0,0,0,0,0,2.0
+F,Brindley,Lauri,38,"Spanish Fork, UT, US",2.0,0,0,0,0,0,2.0
+M,Jordan,Josh,37,"Madison, WI, US",2.0,0,0,0,0,0,2.0
+M,Hsueh,Jack,49,"Kensington, CA, US",4.0,1,0,0,0,0,4.0
+M,Kleinman,Aaron,40,"San Francisco, CA, US",8.0,2,0,0,0,0,8.0
+M,Koopmans,Carl,35,"Seattle, WA, US",2.0,0,0,0,0,0,2.0
+M,Rasmussen,Adam,54,"Arlington, VA, US",2.0,0,0,0,0,0,2.0
+M,Jenkins,Nathan,24,"Duluth, MN, US",2.0,0,0,0,0,0,2.0
+M,Gowland,Jim,53,"Valley Village, CA, US",2.0,0,0,0,0,0,2.0
+M,Bates,Elliott,39,"Glenwood Springs, CO, US",2.0,0,0,0,0,0,2.0
+F,Harris,Gabrielle,43,"Denver, CO, US",5.0,0,0,0,3.5,0,5.0
+M,Cottrell,Bill,39,"Bend, OR, US",4.0,1,0,0,0,0,4.0
+M,Weinstein,David,44,"Bozeman, MT, US",2.0,0,0,0,0,0,2.0
+F,Daum,Gratianne,39,"Vancouver, BC, CA",2.0,0,0,0,0,0,2.0
+M,Schum,Bill,53,"Erie, CO, US",8.0,2,0,0,0,0,8.0
+M,Raup,Christopher,56,"Carlisle, PA, US",2.0,0,0,0,0,0,2.0
+M,Saviola,Anthony,44,"Golden, CO, US",2.0,0,0,0,0,0,2.0
+M,Ming,Bryan Woei,41,"Fort Worth, TX, US",4.0,1,0,0,0,0,4.0
+M,Brashear,Bob,65,"Cold Spring, KY, US",5.4,1,0,1,0,0,5.4
+M,Readinger,Andrew,41,"Los Angeles, CA, US",5.7,1,1,0,0,0.5,5.7
+M,Desch,Rich,40,"Superior, CO, US",2.0,0,0,0,0,0,2.0
+M,Goundry,Jim,45,"Pelham, NY, US",2.0,0,0,0,0,0,2.0
+M,Fox,Isaac,49,"Houston, TX, US",4.0,1,0,0,0,0,4.0
+M,Hudson,John,45,"Sacramento, CA, US",4.0,1,0,0,0,0,4.0
+M,Mikhalov,Maks,42,"Celina, TX, US",4.0,1,0,0,0,0,4.0
+M,Daniels,Matt,36,"Superior, CO, US",2.0,0,0,0,0,0,2.0
+M,Hedges,Jeremy,50,"Salida, CO, US",8.0,2,0,0,0,0,8.0
+M,Halbleib,David,48,"Lakeview, OR, US",4.0,1,0,0,0,0,4.0
+M,Cai,Charles,30,"San Francisco, CA, US",2.0,0,0,0,0,0,2.0
+M,Rudolph,Jonathan,30,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+F,Bonner,Jennifer,37,"Spartanburg, SC, US",4.0,1,0,0,0,0,4.0
+M,Massey,Travis,39,"Salida, CO, US",2.8,0,1,0,0,0.5,2.8
+M,Brones,Ben,39,"Bothell, WA, US",4.0,1,0,0,0,0,4.0
+F,Hume,Amy,51,"Frisco, CO, US",2.8,0,1,0,0,0.5,2.8
+M,Higgs,John,59,"Conifer, CO, US",4.0,1,0,0,0,0,4.0
+M,Smithberger,Jay,55,"Yellow Springs, OH, US",2.0,0,0,0,0,0,2.0
+M,Kagan,Ryan,35,"Castle Rock, CO, US",2.0,0,0,0,0,0,2.0
+M,Trexler,Adam,39,"Silver Spring, MD, US",2.0,0,0,0,0,0,2.0
+M,Kamm,Karl,47,"Ridgway, CO, US",4.0,1,0,0,0,0,4.0
+M,Zheng,Lumin,26,"Shenzhen, , CN",4.0,1,0,0,0,0,4.0
+M,Walker,Joseph,42,"Tacoma, WA, US",2.0,0,0,0,0,0,2.0
+M,Van Horn,Sean,38,"Carbondale, CO, US",4.0,1,0,0,0,0,4.0
+M,Harms,Matthew,37,"Lakewood, CO, US",2.0,0,0,0,0,0,2.0
+M,Keatley,David,44,"Larkspur, CA, US",8.0,2,0,0,0,0,8.0
+F,Hemphill,Katie,31,"Los Alamos, NM, US",4.0,0,2,0,0,1,4.0
+M,Naber,Bret,46,"Greeley, CO, US",2.0,0,0,0,0,0,2.0
+M,Salisbury,Dan,35,"Buena Vista, CO, US",2.0,0,0,0,0,0,2.0
+M,Trommater,Matt,45,"Raleigh, NC, US",2.0,0,0,0,0,0,2.0
+M,Hanumaiah,Kiran,48,"Memphis, TN, US",4.0,1,0,0,0,0,4.0
+F,Hoidal,Antonia,30,"Evergreen, CO, US",2.0,0,0,0,0,0,2.0
+M,Kabra,Aashish,38,"Glenwood Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Parks,Charles,39,"Laramie, WY, US",4.0,1,0,0,0,0,4.0
+M,Flagg,Ronny,57,"Green Valley, AZ, US",2.0,0,0,0,0,0,2.0
+M,Neujahr,Jonathan,36,"Eagle, WI, US",2.0,0,0,0,0,0,2.0
+M,Warnke,Andrew,47,"Littleton, CO, US",22.6,3,1,0,0,0.5,22.6
+M,Nell,Erich,37,"Boulder, CO, US",3.8,0,0,0,1.5,0,3.8
+M,Allen,Jeff,38,"Seneca, SC, US",4.8,0,0,3,0,0,4.8
+M,Ring-Jarvi,Ross,37,"Silverton, CO, US",8.0,2,0,0,0,0,8.0
+F,Follmar,Amanda,42,"Saratoga, CA, US",3.4,0,0,1,0,0,3.4
+M,Boyd,David,36,"Fort Collins, CO, US",16.0,3,0,0,0,0,16.0
+M,Pearson,Kevin,32,"Portland, OR, US",4.0,1,0,0,0,0,4.0
+M,Smith,Kevin,68,"Lafayette, CO, US",17.4,2,1,0,20,0.5,17.4
+M,Alexander,Jesse,58,"Flagstaff, AZ, US",2.0,0,0,0,0,0,2.0
+M,Higgins,Liam,23,"Williston Park, NY, US",4.0,1,0,0,0,0,4.0
+M,Fabrizio,Dustin,40,"Windsor, CO, US",4.0,1,0,0,0,0,4.0
+F,Crump,Robin,55,"Chattanooga, TN, US",2.0,0,0,0,0,0,2.0
+M,Paul,Craig,38,"Cody, WY, US",2.0,0,0,0,0,0,2.0
+F,Davis,Jodie,32,"Dorchester Center, MA, US",2.0,0,0,0,0,0,2.0
+M,Holovko,Maksym,39,"Palatine, IL, US",2.0,0,0,0,0,0,2.0
+F,Sloan,Kathy,52,"Crestview, FL, US",2.0,0,0,0,0,0,2.0
+F,Van Valkenburgh,Lauren,29,"Kenosha, WI, US",2.0,0,0,0,0,0,2.0
+M,Feldman,Josh,32,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Frost-Tift,Joel,36,"Burbank, CA, US",2.0,0,0,0,0,0,2.0
+M,Chaffee,Steve,59,"Fort Collins, CO, US",2.0,0,0,0,0,0,2.0
+M,Walton,Brandon,34,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+F,Ormuz,Tina,49,"Dubai, , AE",2.0,0,0,0,0,0,2.0
+M,Thomas,Chris,41,"Bowling Green, KY, US",8.0,2,0,0,0,0,8.0
+M,Maraglia,Drew,38,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+M,Carson,Kevin,33,"Silverthorne, CO, US",2.0,0,0,0,0,0,2.0
+M,Massie,Jason,50,"Arlington, TX, US",4.0,1,0,0,0,0,4.0
+F,Shremshock,Mikala,41,"Harpers Ferry, WV, US",2.0,0,0,0,0,0,2.0
+M,Palen,Andrew,40,"Scarsdale, NY, US",4.0,1,0,0,0,0,4.0
+M,Muniz,Andrew,34,"Mesa, AZ, US",2.0,0,0,0,0,0,2.0
+M,Loncar,Travis,35,"Scranton, PA, US",2.0,0,0,0,0,0,2.0
+F,Wagner,Lindsay,40,"Durango, CO, US",2.8,0,1,0,0,0.5,2.8
+M,Schlosser,Nate,26,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Higgins,Andrew,45,"Birmingham, AL, US",4.0,1,0,0,0,0,4.0
+M,Oura,Takashi,40,"Kawagoe, 11, JP",2.0,0,0,0,0,0,2.0
+F,Stassel,Allison,29,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Kline,Peter,25,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Owens,Brent,48,"Littleton, CO, US",2.0,0,0,0,0,0,2.0
+M,Perreault,Xavier,34,"Saint-Hippolyte, QC, CA",2.0,0,0,0,0,0,2.0
+M,Klawitter,Karsten,42,"Victoria, BC, CA",4.0,1,0,0,0,0,4.0
+M,Martinez,Michael,39,"Colorado Springs, CO, US",16.0,3,0,0,0,0,16.0
+M,Humphreys,Samuel,36,"Lostine, OR, US",2.0,0,0,0,0,0,2.0
+M,Whitesel,Bryan,36,"Sioux Falls, SD, US",11.3,1,3,0,0,1.5,11.3
+M,Lyle,Chris,49,"Cave Springs, AR, US",2.8,0,1,0,0,0.5,2.8
+F,Weiss,Liz,39,"Salida, CO, US",2.0,0,0,0,0,0,2.0
+M,Shunmugam,Abimanyu,53,"Singapore, , SG",4.0,1,0,0,0,0,4.0
+M,Timinsky,Andy,36,"Silverthorne, CO, US",2.0,0,0,0,0,0,2.0
+M,Mcumber,Aaron,37,"Longmont, CO, US",4.0,1,0,0,0,0,4.0
+M,Jamar,T.R.,38,"Nathrop, CO, US",2.0,0,0,0,0,0,2.0
+F,Oehlerking,Ashley,37,"Harpers Ferry, WV, US",2.0,0,0,0,0,0,2.0
+M,Knaus,Jeremy,51,"Appleton, WI, US",2.0,0,0,0,0,0,2.0
+M,Waterman,Stephen,57,"New London, NH, US",2.0,0,0,0,0,0,2.0
+F,Dangelo,Heather,32,"Erie, CO, US",2.0,0,0,0,0,0,2.0
+M,Gruenbacher,Doug,51,"Quinter, KS, US",2.0,0,0,0,0,0,2.0
+M,Mccartney,David,40,"Darlington, IN, US",8.0,2,0,0,0,0,8.0
+M,Steele,Andrew,50,"Breckenridge, CO, US",2.0,0,0,0,0,0,2.0
+M,Lee,Scott,54,"Haymarket, VA, US",2.0,0,0,0,0,0,2.0
+M,Campbell,Steve,52,"Richmond, VA, US",2.0,0,0,0,0,0,2.0
+M,Grandstaff,Jesse,33,"Seminole, OK, US",2.0,0,0,0,0,0,2.0
+F,Hoke,Monika,28,"Salt Lake City, UT, US",2.0,0,0,0,0,0,2.0
+M,Reimer,Luke,34,"Boulder, CO, US",4.0,1,0,0,0,0,4.0
+M,Schmechel,Joe,37,"Helena, MT, US",2.0,0,0,0,0,0,2.0
+M,Erbstoesser,Craig,33,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Sandoval,Noah,34,"Littleton, CO, US",4.0,1,0,0,0,0,4.0
+F,Brant,Emma,26,"Sedona, AZ, US",4.0,1,0,0,0,0,4.0
+M,Patrick,Mark,37,"Littleton, CO, US",2.0,0,0,0,0,0,2.0
+F,Patrick,Erica,37,"Littleton, CO, US",4.5,0,0,0,2.5,0,4.5
+M,Scheff,Jesse,39,"Saint Augustine, FL, US",2.0,0,0,0,0,0,2.0
+M,Trierweiler,John,41,"Denver, CO, US",4.0,1,0,0,0,0,4.0
+M,Spedden,Bart,48,"Crested Butte, CO, US",2.0,0,0,0,0,0,2.0
+M,Casado,Marcel,55,"Longmont, CO, US",2.0,0,0,0,0,0,2.0
+M,Hardink,Luc,14,"Salt Lake City, UT, US",2.0,0,0,0,0,0,2.0
+M,Fiore,Bronson,24,"Durango, CO, US",4.0,1,0,0,0,0,4.0
+M,Maher,Charles,30,"Ann Arbor, MI, US",2.0,0,0,0,0,0,2.0
+F,Coombs,Miaja,21,"Mapleton, UT, US",2.0,0,0,0,0,0,2.0
+M,Bohdanowycz,Stefan,48,"Irvington, NY, US",2.0,0,0,0,0,0,2.0
+M,Lantzy,Chris,45,"Sedona, AZ, US",8.0,2,0,0,0,0,8.0
+M,Roberts,Matt,40,"Columbus, IN, US",8.0,2,0,0,0,0,8.0
+F,Mele,Tatyana,39,"Boca Raton, FL, US",2.0,0,0,0,0,0,2.0
+M,Irish,Jonathan,44,"Capistrano Beach, CA, US",2.0,0,0,0,0,0,2.0
+F,Jensen,Anne,46,"Denver, CO, US",4.0,1,0,0,0,0,4.0
+M,Bloom,Aaron,52,"Cumming, GA, US",2.0,0,0,0,0,0,2.0
+M,Doeschot,Andrew,41,"Columbia, IL, US",2.0,0,0,0,0,0,2.0
+M,Chrysler,Andrew,36,"Los Alamos, NM, US",4.0,1,0,0,0,0,4.0
+M,Maune,Brett,45,"Boulder, CO, US",4.0,1,0,0,0,0,4.0
+M,Petersen,Drew,30,"Silverthorne, CO, US",8.0,2,0,0,0,0,8.0
+M,Lipovsky,Tim,36,"South Lake Tahoe, CA, US",4.0,1,0,0,0,0,4.0
+M,Widmer,Tim,48,"Steamboat Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Muntz,James,49,"Bend, OR, US",4.0,1,0,0,0,0,4.0
+M,Sunseri,Francesco,34,"Crestline, CA, US",2.0,0,0,0,0,0,2.0
+M,Robertson,Nicholas,41,"Las Vegas, NV, US",2.0,0,0,0,0,0,2.0
+M,Kerl,Bryan,33,"Salida, CO, US",2.0,0,0,0,0,0,2.0
+F,Merkley,Meredith,36,"Flagstaff, AZ, US",4.0,1,0,0,0,0,4.0
+F,Lomeli,Michelle,43,"San Jose, CA, US",2.0,0,0,0,0,0,2.0
+M,Larson,Austin,41,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Ortiz,Aaron,42,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Holway,Joseph,32,"Durango, CO, US",4.0,1,0,0,0,0,4.0
+M,Tyson,Brandon,37,"Alpharetta, GA, US",2.0,0,0,0,0,0,2.0
+M,Akley,Nicholas,33,"Elizabeth, CO, US",8.0,2,0,0,0,0,8.0
+M,Mcgee,Eric,54,"RosemÃ¨re, QC, CA",2.0,0,0,0,0,0,2.0
+M,Ventosa,Charles,49,"Colfax, CA, US",2.0,0,0,0,0,0,2.0
+M,Oakford,Rich,46,"Lake Bluff, IL, US",2.0,0,0,0,0,0,2.0
+M,Bligan,Carl,29,"Wayne, PA, US",2.0,0,0,0,0,0,2.0
+M,Forsyth,Ian,33,"Boulder, CO, US",2.8,0,1,0,0,0.5,2.8
+M,King,Bradley,48,"Rockford, IL, US",2.0,0,0,0,0,0,2.0
+M,Rammell,Jared,49,"Denver, CO, US",2.8,0,1,0,0,0.5,2.8
+M,Merz,Pascal,39,"New York, NY, US",2.0,0,0,0,0,0,2.0
+M,Bergman,Ronald,45,"Salida, CO, US",10.2,2,0,1,1,0,10.2
+F,Bergman,Stephanie,41,"Salida, CO, US",3.4,0,0,0,1,0,3.4
+M,Tinkham,Brett,34,"Broomfield, CO, US",4.0,1,0,0,0,0,4.0
+F,Wolff,Claire,25,"Boulder, CO, US",6.4,0,0,0,8,0,6.4
+M,Haygood,Corey,42,"Scottsdale, AZ, US",2.0,0,0,0,0,0,2.0
+M,Fussell,Scott,48,"Fort Collins, CO, US",2.0,0,0,0,0,0,2.0
+M,Shepard,Timothy,32,"Carbondale, CO, US",2.0,0,0,0,0,0,2.0
+M,Meservy,Jay,35,"Dillon, CO, US",2.0,0,0,0,0,0,2.0
+M,Sherback,John,45,"North Easton, MA, US",2.0,0,0,0,0,0,2.0
+M,Lowe,Gregory,60,"Newbury, MA, US",2.0,0,0,0,0,0,2.0
+M,Spetzler,Brenden,33,"Broomfield, CO, US",4.0,1,0,0,0,0,4.0
+M,Burke,Matt,37,"Baltimore, MD, US",2.0,0,0,0,0,0,2.0
+F,Martinez (Musgrave),Laura,37,"Los Alamos, NM, US",2.0,0,0,0,0,0,2.0
+F,Musgrave,Maria,31,"Los Alamos, NM, US",4.0,0,2,0,0,1,4.0
+M,Parks,Jason,43,"Guadalajara, JAL, MX",4.0,1,0,0,0,0,4.0
+M,Darby,Zack,31,"Salt Lake City, UT, US",2.0,0,0,0,0,0,2.0
+M,Lock,Tim,44,"Hope, ME, US",16.0,3,0,0,0,0,16.0
+F,Jones,Sophia,30,"Manhattan, KS, US",2.0,0,0,0,0,0,2.0
+F,Rogers,Sara,43,"New Richmond, WI, US",2.0,0,0,0,0,0,2.0
+M,Gonzalez,Barnabas,34,"Hoover, AL, US",2.0,0,0,0,0,0,2.0
+F,Goodrich,Autumn,42,"Bozeman, MT, US",2.0,0,0,0,0,0,2.0
+M,Stuckel,Jonathan,33,"Philadelphia, PA, US",2.0,0,0,0,0,0,2.0
+M,Steele,Connor,28,"Lakewood, CO, US",2.0,0,0,0,0,0,2.0
+M,Svendsen,Matthew,29,"Sioux Falls, SD, US",2.0,0,0,0,0,0,2.0
+M,Cordell,Jacob,29,"Golden, CO, US",12.2,2,0,5.125,2,0,12.2
+M,Johnson,Bertram,52,"Burlington, VT, US",5.7,1,1,0,0,0.5,5.7
+M,Riehemann,Max,31,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Miller,Edwin,27,"Corvallis, OR, US",4.0,1,0,0,0,0,4.0
+M,Frank,Isaac,31,"Leadville, CO, US",10.2,2,0,0,2,0,10.2
+F,Fones,Madeline,33,"Aspen, CO, US",2.0,0,0,0,0,0,2.0
+M,Kammin,Benjamin,50,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+M,Williams,Jack,54,"Stillwater, MN, US",2.0,0,0,0,0,0,2.0
+M,Corcoran,Louis,30,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+M,Cohen,Mitchell,55,"Boulder, CO, US",8.0,2,0,0,0,0,8.0
+M,Foster,Christopher,32,"Kansas City, MO, US",4.0,1,0,0,0,0,4.0
+M,Hanzel,Eric,44,"Lakewood, CO, US",2.8,0,1,0,0,0.5,2.8
+F,Williams,Emily,31,"Hailey, ID, US",2.0,0,0,0,0,0,2.0
+F,Hume,Danielle,31,"Salt Lake City, UT, US",2.0,0,0,0,0,0,2.0
+F,Drasler,Erin,44,"Boulder, CO, US",5.0,0,0,1,2.5,0,5.0
+M,Moric,Nico,31,"Vail, CO, US",2.0,0,0,0,0,0,2.0
+M,Walker,Shawn,47,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Schuetz,Noah,27,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Metz,Kevin,33,"Moreland Hills, OH, US",4.0,1,0,0,0,0,4.0
+M,Whiteside,Michael,42,"Layton, UT, US",2.0,0,0,0,0,0,2.0
+M,Ihara,Tomokazu,47,"Hachioji, 13, JP",2.0,0,0,0,0,0,2.0
+F,Roop,Alexa,41,"Parker, CO, US",2.0,0,0,0,0,0,2.0
+F,Noonan,Kerry,53,"Lander, WY, US",2.0,0,0,0,0,0,2.0
+M,Gaetke,Stephen,40,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Trampe,Daniel,38,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Stokes,Sandon,27,"Cedar City, UT, US",8.0,2,0,0,0,0,8.0
+M,Murray,Dustin,40,"Pocatello, ID, US",2.0,0,0,0,0,0,2.0
+F,Braun,Rhonda,41,"Brooklyn, NY, US",2.0,0,0,0,0,0,2.0
+M,Patton,Michael,42,"Powell, OH, US",2.0,0,0,0,0,0,2.0
+F,Catanglan,Lexie,44,"Roseville, CA, US",2.0,0,0,0,0,0,2.0
+M,Parker,Brandon,43,"Phoenix, AZ, US",2.0,0,0,0,0,0,2.0
+M,Smallcomb,Chris,47,"Sparks, NV, US",2.0,0,0,0,0,0,2.0
+M,Holt,Hunter,29,"Beaver, UT, US",2.0,0,0,0,0,0,2.0
+F,Johnson,Aron,43,"Montrose, CO, US",2.0,0,0,0,0,0,2.0
+M,Rexroad,Andrew,40,"Denver, CO, US",8.0,2,0,0,0,0,8.0
+F,Brin,Lisa,42,"Crested Butte, CO, US",4.0,1,0,0,0,0,4.0
+M,Wallace,David,45,"Phoenix, AZ, US",4.0,1,0,0,0,0,4.0
+M,Keller,Nick,46,"Saint Paul, MN, US",5.7,1,1,0,0,0.5,5.7
+M,Osborne,Kedric,47,"Littleton, CO, US",4.0,1,0,0,0,0,4.0
+M,Beste,Samuel,22,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+M,Mitevski,Alex,46,"Clarkston, MI, US",4.0,1,0,0,0,0,4.0
+M,Sakurai,Yoichiro,46,"Hachgioji, 13, JP",2.0,0,0,0,0,0,2.0
+M,Linfield,Cory,37,"Colorado Springs, CO, US",4.0,0,2,0,0,1,4.0
+M,Lapoint,Ronald,43,"Maize, KS, US",2.8,0,1,0,0,0.5,2.8
+M,Galasso,Alex,33,"Sandy, UT, US",2.0,0,0,0,0,0,2.0
+M,Gonzalez,Milton,50,"Distrito Federal, DIF, MX",4.0,1,0,0,0,0,4.0
+M,Teger,Mike,55,"Colorado Springs, CO, US",10.4,2,0,2.25,0,0,10.4
+F,White,Melanie,36,"Broomfield, CO, US",2.0,0,0,0,0,0,2.0
+F,Herring,Kimberly,43,"Arlington, VA, US",2.0,0,0,0,0,0,2.0
+M,Herczeg,Jonathan,43,"Mill Valley, CA, US",2.0,0,0,0,0,0,2.0
+M,Stratan,Ihor,38,"Farmingdale, NY, US",2.0,0,0,0,0,0,2.0
+M,Garmire,Jeff,34,"Bozeman, MT, US",4.0,1,0,0,0,0,4.0
+M,Gregg,Jeff,42,"Doniphan, NE, US",4.0,1,0,0,0,0,4.0
+M,Mello,Edward,43,"Richardson, TX, US",2.0,0,0,0,0,0,2.0
+M,Mcwhorter,Travis,38,"Albuquerque, NM, US",5.7,1,1,0,0,0.5,5.7
+M,Barlow,Rob,39,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Gram,Peter,46,"Jackson, WY, US",2.0,0,0,0,0,0,2.0
+F,Swanson,Jen,49,"Hyde Park, UT, US",2.0,0,0,0,0,0,2.0
+M,Sparks,Luke,32,"Lakewood, CO, US",2.0,0,0,0,0,0,2.0
+M,Milam,Evrhet,39,"Las Vegas, NV, US",2.0,0,0,0,0,0,2.0
+F,Kay,Sharlota,41,"Bronx, NY, US",4.0,1,0,0,0,0,4.0
+F,Johnson,Kate,38,"San Jose, CA, US",2.0,0,0,0,0,0,2.0
+F,Lynch,Taylor,30,"Draper, UT, US",2.0,0,0,0,0,0,2.0
+M,Lewis,Ethan,42,"Penn Valley, CA, US",2.0,0,0,0,0,0,2.0
+F,Bortfeld,Devon,29,"Fort Collins, CO, US",2.0,0,0,0,0,0,2.0
+F,Bavier,Miranda,51,"Memphis, TN, US",2.0,0,0,0,0,0,2.0
+F,Ranalli,Jessica,31,"Beamsville, ON, CA",2.0,0,0,0,0,0,2.0
+M,Sokolovskyy,Dmytro,36,"Moorpark, CA, US",16.0,3,0,0,0,0,16.0
+F,Nicols,Steph,25,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+F,Fenwick,Jennifer,36,"Poncha Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Wolfe,Russell,19,"Memphis, TN, US",7.9,1,0,0,6,0,7.9
+F,Drugan-Eppich,Kylee,33,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+M,Diament,Jeffrey,29,"Santa Cruz, CA, US",2.0,0,0,0,0,0,2.0
+M,Larson,Dylan,29,"Midland, TX, US",2.0,0,0,0,0,0,2.0
+M,Ross,Taylor,40,"Lakewood, CO, US",2.0,0,0,0,0,0,2.0
+M,Goodwin,Evan,38,"San Diego, CA, US",9.1,2,0,0.75,0,0,9.1
+F,Beaver,Laura,41,"Argyle, TX, US",2.0,0,0,0,0,0,2.0
+M,Harmon,William,28,"Lander, WY, US",2.0,0,0,0,0,0,2.0
+M,Eury,Mark,47,"Golden, CO, US",4.0,0,2,0,0,1,4.0
+M,Anderson,Peder,47,"Bozeman, MT, US",2.0,0,0,0,0,0,2.0
+M,Mukkamala,Himagiri,51,"Pleasanton, CA, US",2.0,0,0,0,0,0,2.0
+M,Ziegler Jr,William,52,"Bentonville, AR, US",2.0,0,0,0,0,0,2.0
+M,Emmerich,Clint,39,"Cherry Hills Village, CO, US",3.4,0,0,1,0,0,3.4
+F,Shekiro,Emery,33,"Evergreen, CO, US",2.0,0,0,0,0,0,2.0
+M,Kentz,Gibb,44,"Glenwood Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Sampaleanu,Stefan,29,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Semin,Parker,32,"Breckenridge, CO, US",4.0,1,0,0,0,0,4.0
+M,Mika,Shad,49,"Broomfield, CO, US",3.4,0,0,0,1,0,3.4
+M,Dolan,Jeff,46,"Glen Mills, PA, US",2.0,0,0,0,0,0,2.0
+M,Broecker,Eric,49,"Frisco, CO, US",2.0,0,0,0,0,0,2.0
+F,Miles,Allison,41,"Bend, OR, US",2.0,0,0,0,0,0,2.0
+M,Hacker,Merle,38,"London, KY, US",4.0,1,0,0,0,0,4.0
+M,Gilbert,Nathaniel,33,"Denver, CO, US",2.8,0,1,0,0,0.5,2.8
+M,Delille,Remi,42,"Sammamish, WA, US",2.0,0,0,0,0,0,2.0
+F,Cuthbert,Clara,30,"Lone Tree, CO, US",2.0,0,0,0,0,0,2.0
+M,Thurnhoffer,Dan,37,"Golden, CO, US",2.0,0,0,0,0,0,2.0
+M,Wiseman,Matthew,26,"Jackson, WY, US",2.0,0,0,0,0,0,2.0
+M,Doyle,Paul,55,"Colorado Springs, CO, US",5.7,1,1,0,0,0.5,5.7
+M,Domro,Dillan,33,"Arvada, CO, US",2.0,0,0,0,0,0,2.0
+F,Ryan,Mary,34,"Golden, CO, US",2.0,0,0,0,0,0,2.0
+F,Cross,Leslie,34,"Reno, NV, US",2.0,0,0,0,0,0,2.0
+F,Johnson,Jessi,43,"Plymouth, MN, US",5.6,0,0,0,5,0,5.6
+M,Schuetz,Isaac,29,"Platteville, WI, US",2.0,0,0,0,0,0,2.0
+M,Shu,Eric,35,"Golden, CO, US",5.0,0,1,0,2,0.5,5.0
+F,Clarke,Deserae,43,"Surprise, AZ, US",4.0,1,0,0,0,0,4.0
+M,Logan,Derek,43,"Belen, NM, US",2.0,0,0,0,0,0,2.0
+M,Deis,Phil,42,"Windsor, CO, US",8.0,2,0,0,0,0,8.0
+M,Clark,Brandon,40,"Dayton, OH, US",2.0,0,0,0,0,0,2.0
+M,Bigley,Michael,48,"Buena Vista, CO, US",8.0,1,0,0,6.5,0,8.0
+M,Weigand,Mike,50,"Middlebury, VT, US",4.0,1,0,0,0,0,4.0
+M,Hestand,James,33,"Manitou Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Williams,Bryan,49,"Broomfield, CO, US",8.0,1,2,0,0,1,8.0
+M,Hughes,Adam,32,"Ann Arbor, MI, US",4.0,1,0,0,0,0,4.0
+M,Boike,Aaron,36,"Minneapolis, MN, US",2.0,0,0,0,0,0,2.0
+M,Maldonado,Estevan,25,"Arvada, CO, US",2.0,0,0,0,0,0,2.0
+M,James,Brandon,33,"Fort Collins, CO, US",11.4,2,0,0,4.5,0,11.4
+M,Walker,Connor,25,"Georgetown, TX, US",2.0,0,0,0,0,0,2.0
+M,Price,Lewis,33,"Denver, CO, US",4.0,1,0,0,0,0,4.0
+M,Baloun,Karel,52,"Lafayette, CA, US",8.0,2,0,0,0,0,8.0
+M,Clayton,Ryan,41,"West Lafayette, IN, US",8.0,2,0,0,0,0,8.0
+M,Mateski,Scott,31,"Alemena, WI, US",2.0,0,0,0,0,0,2.0
+M,Echizenya,Rei,26,"Oakland, CA, US",2.0,0,0,0,0,0,2.0
+F,Bracy,Addie,38,"Buena Vista, CO, US",2.0,0,0,0,0,0,2.0
+M,Watson,Jack,44,"Carbondale, CO, US",4.0,1,0,0,0,0,4.0
+M,Thompson,Joel,39,"Sonora, CA, US",2.0,0,0,0,0,0,2.0
+F,Flanagan,Megan,29,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+F,Demorest,Shanda,34,"Crestone, CO, US",2.0,0,0,0,0,0,2.0
+F,Williams,Katie,44,"Leadville, CO, US",2.0,0,0,0,0,0,2.0
+M,Thieme,Ben,22,"Golden, CO, US",3.4,0,0,0,1,0,3.4
+F,Rader,Melanie,31,"Kanab, UT, US",2.0,0,0,0,0,0,2.0
+M,Jacobsen,Erik,31,"Fort Collins, CO, US",2.0,0,0,0,0,0,2.0
+F,Hadfield,Liesel,35,"Carbondale, CO, US",2.8,0,1,0,0,0.5,2.8
+M,Whalen,Matt,46,"San Diego, CA, US",2.0,0,0,0,0,0,2.0
+M,Courtright,Josh,35,"Colorado Springs, CO, US",16.0,3,0,0,0,0,16.0
+M,Patel,Devang,35,"North Bergen, NJ, US",4.0,1,0,0,0,0,4.0
+F,Kurtz,Jennifer,27,"Blowing Rock, NC, US",2.0,0,0,0,0,0,2.0
+M,Buhnerkemper,Austin,32,"Salt Lake City, UT, US",2.0,0,0,0,0,0,2.0
+M,Pinney,Colin,49,"Fort Collins, CO, US",2.0,0,0,0,0,0,2.0
+M,Luloff,Greg,47,"Seattle, WA, US",2.0,0,0,0,0,0,2.0
+F,Orig,Rebecca,35,"Nathrop, CO, US",5.3,0,1,0,2.5,0.5,5.3
+F,Reschke,Megan,30,"Salt Lake City, UT, US",2.0,0,0,0,0,0,2.0
+M,Jones,Benjamin,39,"Golden, CO, US",4.0,1,0,0,0,0,4.0
+M,Davies,Rob,56,"Taylorsville, UT, US",2.0,0,0,0,0,0,2.0
+F,Froetscher,Lynn,33,"Crested Butte, CO, US",2.8,0,1,0,0,0.5,2.8
+F,Grafnetterova,Nikola,37,"Corpus Christi, TX, US",2.0,0,0,0,0,0,2.0
+F,Lemcke,Rachel,29,"Colorado Springs, CO, US",4.0,1,0,0,0,0,4.0
+M,Fisher,Jacob,28,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Taylor,Jake,39,"Bettendorf, IA, US",4.0,1,0,0,0,0,4.0
+M,Bruno,Benjamin,40,"Mccall, ID, US",2.0,0,0,0,0,0,2.0
+F,Brodeur,Diane,60,"Kelowna, BC, CA",2.0,0,0,0,0,0,2.0
+M,Sinclair,Dylan,41,"Kayenta, AZ, US",2.0,0,0,0,0,0,2.0
+M,Holt,Doug,42,"Boulder, CO, US",8.0,1,2,0,0,1,8.0
+M,Louis-Ferdinand,Robert,57,"Bloomfield Hills, MI, US",2.0,0,0,0,0,0,2.0
+M,Pickering,Chris,32,"Lakewood, CO, US",2.0,0,0,0,0,0,2.0
+M,Van Horn,Hans,41,"Sacramento, CA, US",2.0,0,0,0,0,0,2.0
+M,Delu,Adam,54,"Albuquerque, NM, US",2.0,0,0,0,0,0,2.0
+M,Landresse,Christian,55,"Luxembourg, , LU",2.0,0,0,0,0,0,2.0
+F,Kammer,Katie,28,"Durango, CO, US",2.8,0,1,0,0,0.5,2.8
+F,Guadarrama,Suzanna,36,"Altadena, CA, US",2.0,0,0,0,0,0,2.0
+M,Hughes,Samuel,29,"Soquel, CA, US",8.0,2,0,0,0,0,8.0
+M,Pise,Pradeep,46,"Livermore, CA, US",2.0,0,0,0,0,0,2.0
+M,Haley,Nathan,26,"Crested Butte, CO, US",2.0,0,0,0,0,0,2.0
+M,Mader,Nash,27,"Encinitas, CA, US",6.8,0,0,0,10,0,6.8
+M,Herson,Taylor,32,"Bend, OR, US",2.0,0,0,0,0,0,2.0
+M,Singer,Jeremy,32,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Labranche,Steven,51,"Oakdale, CT, US",2.0,0,0,0,0,0,2.0
+F,Sigman,Danielle,36,"Lafayette, CO, US",2.0,0,0,0,0,0,2.0
+M,Dorn,Gabriel,32,"Golden, CO, US",6.8,1,0,0,3,0,6.8
+M,Kaminski,Nick,52,"Burleson, TX, US",2.0,0,0,0,0,0,2.0
+M,Collins,Jordan,33,"Atascadero, CA, US",2.0,0,0,0,0,0,2.0
+M,Rodriguez,Nick,43,"Castle Rock, CO, US",14.5,2,0,0,25,0,14.5
+F,O'Gorman,Christine,35,"Fort Collins, CO, US",2.0,0,0,0,0,0,2.0
+M,Wilson,Tyler,35,"Comox, BC, CA",4.0,1,0,0,0,0,4.0
+M,Colt,Jeffrey,33,"Carbondale, CO, US",2.0,0,0,0,0,0,2.0
+F,Coon,Kelsey,31,"Basalt, CO, US",2.8,0,0,0.5,0,0,2.8
+M,Cook,Benjamin,44,"Flagstaff, AZ, US",2.0,0,0,0,0,0,2.0
+M,Cargile,Kristopher,49,"Colorado Springs, CO, US",4.0,1,0,0,0,0,4.0
+F,Mccarthy,Megan,41,"Harpers Ferry, WV, US",2.0,0,0,0,0,0,2.0
+M,Merritt,Greg,35,"Falmouth, ME, US",16.0,3,0,0,0,0,16.0
+M,Mcpherson,Andy,35,"Brighton, CO, US",12.8,2,0,0,10,0,12.8
+F,Laputsina,Violetta,25,"Indian Hills, CO, US",2.0,0,0,0,0,0,2.0
+M,Wood,Derek,33,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+M,Olwin,Bradley,67,"Berthoud, CO, US",2.0,0,0,0,0,0,2.0
+M,Bergemann,Kyle,33,"Asheville, NC, US",2.0,0,0,0,0,0,2.0
+F,Shiflett,Teresa,39,"Del Norte, CO, US",4.0,1,0,0,0,0,4.0
+M,Acklin,Casey,29,"Reno, NV, US",2.0,0,0,0,0,0,2.0
+M,Fasoline,Mike,35,"San Carlos, CA, US",2.0,0,0,0,0,0,2.0
+M,Derouen,Brian,47,"Alderson, WV, US",4.0,1,0,0,0,0,4.0
+M,Peterson,Tyler,42,"Satellite Beach, FL, US",2.0,0,0,0,0,0,2.0
+M,Bitters,Matthew,32,"Nederland, CO, US",2.0,0,0,0,0,0,2.0
+M,Strickland,Jeff,36,"Colorado Springs, CO, US",4.0,1,0,0,0,0,4.0
+M,Gorney,Christopher,47,"Las Vegas, NV, US",2.0,0,0,0,0,0,2.0
+M,Raffo,Nico,43,"Oakland, CA, US",8.0,2,0,0,0,0,8.0
+M,Smith,Shaun,41,"Hesperus, CO, US",10.8,2,0,0,3,0,10.8
+M,Cummings,Steevo,44,"Pittsburgh, PA, US",2.0,0,0,0,0,0,2.0
+M,Crews,Brandon,42,"Asheville, NC, US",3.6,0,0,1.25,0,0,3.6
+M,Liethen,Alex,42,"Golden, CO, US",2.0,0,0,0,0,0,2.0
+F,Mcbee,Natalie,51,"Fayetteville, AR, US",3.8,0,0,0,1.5,0,3.8
+M,Brandes,Peter,32,"Niwot, CO, US",8.0,2,0,0,0,0,8.0
+M,Yamada,Akira,48,"Shibuya, 13, JP",2.0,0,0,0,0,0,2.0
+M,Bickers,Alex,38,"Westfield, IN, US",4.0,1,0,0,0,0,4.0
+M,Slotterbach,Bryan,51,"Quakertown, PA, US",2.0,0,0,0,0,0,2.0
+M,Eveland,Christopher,50,"Nashville, TN, US",8.0,1,2,0,0,1,8.0
+F,Courtney,Catriona,53,"Cork, , IE",2.0,0,0,0,0,0,2.0
+M,Harris,Phil,40,"Morley, LDS, GB",8.0,2,0,0,0,0,8.0
+M,Petker,Andreas,36,"Salt Lake City, UT, US",2.0,0,0,0,0,0,2.0
+M,Fitzsimmons,Mike,30,"Sparks, NV, US",2.0,0,0,0,0,0,2.0
+M,Nichols,Braydon,27,"Aspen, CO, US",2.0,0,0,0,0,0,2.0
+M,Taylor,Rusty,40,"Littleton, CO, US",8.0,2,0,0,0,0,8.0
+M,Siebold,Jeff,46,"Barrington, IL, US",8.0,2,0,0,0,0,8.0
+M,Donosky,Jay,54,"Flagstaff, AZ, US",2.0,0,0,0,0,0,2.0
+F,Tetachuk,Danielle,39,"Pincher Creek, AB, CA",2.0,0,0,0,0,0,2.0
+M,Solomon,Carl,36,"Longmont, CO, US",2.0,0,0,0,0,0,2.0
+M,Fletcher,Matt,57,"Salt Lake City, UT, US",2.0,0,0,0,0,0,2.0
+M,Wurfel,Mark,58,"Seattle, WA, US",2.0,0,0,0,0,0,2.0
+F,Laliberte,Alyssa,36,"Steamboat Springs, CO, US",2.0,0,0,0,0,0,2.0
+F,Rasmussen,Nicole,38,"Logan, UT, US",2.0,0,0,0,0,0,2.0
+M,Prawdzik,Paul,28,"Wheat Ridge, CO, US",2.0,0,0,0,0,0,2.0
+M,Huyett,Joe,33,"FORT COLLINS, CO, US",5.4,1,0,1,0,0,5.4
+M,Webb,Matthew,31,"Denver, CO, US",4.0,1,0,0,0,0,4.0
+M,Hayde,Harry,29,"Baldwin City, KS, US",2.0,0,0,0,0,0,2.0
+M,Trach,Roman,38,"Folsom, CA, US",2.0,0,0,0,0,0,2.0
+F,Chen,Sonia,24,"Dallas, TX, US",2.0,0,0,0,0,0,2.0
+F,Conlon,Robin,50,"Lake Arrowhead, CA, US",2.0,0,0,0,0,0,2.0
+M,Kennedy,Brian,54,"Tucson, AZ, US",2.0,0,0,0,0,0,2.0
+M,Seres,Ken,49,"Edmond, OK, US",2.0,0,0,0,0,0,2.0
+M,Shilling,Kevin,57,"Salt Lake City, UT, US",4.0,1,0,0,0,0,4.0
+M,Clark,Dain,42,"Aurora, CO, US",4.0,1,0,0,0,0,4.0
+M,Wherry,Shawn,44,"Windsor, CO, US",4.0,1,0,0,0,0,4.0
+M,Sengo,Martin,44,"Auburn, CA, US",2.8,0,1,0,0,0.5,2.8
+M,Mcpherson,Ian,29,"Durango, CO, US",2.0,0,0,0,0,0,2.0
+M,Schindler,Louis,47,"Motueka, , NZ",2.0,0,0,0,0,0,2.0
+M,Maisel,Andrew,38,"Washington, DC, US",2.0,0,0,0,0,0,2.0
+F,Warfel,Heidi,39,"Carbondale, CO, US",8.0,2,0,0,0,0,8.0
+M,Riemer,Mason,30,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Gurr,Stephen,50,"Victoria, BC, CA",2.0,0,0,0,0,0,2.0
+M,Blankenship,Jon,51,"Columbia Falls, MT, US",2.0,0,0,0,0,0,2.0
+M,Miller,Rob,40,"Golden, CO, US",2.0,0,0,0,0,0,2.0
+M,Spakowicz,Dan,42,"Columbus, OH, US",2.0,0,0,0,0,0,2.0
+M,Carter,Jonathan,38,"Lodi, CA, US",4.0,1,0,0,0,0,4.0
+M,Castner,Steven,33,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Logan,Todd,42,"San Rafael, CA, US",2.0,0,0,0,0,0,2.0
+M,Watanabe,Takahiro,45,"Yokohama, 14, JP",2.0,0,0,0,0,0,2.0
+M,Freed,Charlie,31,"Louisville, KY, US",2.0,0,0,0,0,0,2.0
+M,Canedo,Guillermo,55,"El Prado, NM, US",22.6,3,1,0,0,0.5,22.6
+M,Cates,Daniel,37,"Cumming, GA, US",2.0,0,0,0,0,0,2.0
+F,Glazer,Caroline,29,"Salida, CO, US",7.4,0,0,0,14,0,7.4
+M,Traer,Scott,43,"Scottsdale, AZ, US",2.0,0,0,0,0,0,2.0
+F,Schur,Rachel,37,"Durango, CO, US",2.0,0,0,0,0,0,2.0
+M,Flanary,James,45,"Colorado Springs, CO, US",16.0,2,2,0,0,1,16.0
+M,Sherfy,Brett,37,"Blacksburg, VA, US",4.0,1,0,0,0,0,4.0
+F,James,Mary,22,"Cincinnati, OH, US",4.0,1,0,0,0,0,4.0
+M,Mata,Matthew,36,"Bigfork, MN, US",4.0,1,0,0,0,0,4.0
+M,Miley,Blake,37,"Mc Crory, AR, US",2.0,0,0,0,0,0,2.0
+M,Alexander,Nathan,25,"Fayetteville, AR, US",2.0,0,0,0,0,0,2.0
+F,Pizzo,Sarah,41,"Steamboat Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Knowles,Ryan,24,"Las Vegas, NV, US",2.0,0,0,0,0,0,2.0
+M,Hayden,Chris,49,"Sheridan, WY, US",2.0,0,0,0,0,0,2.0
+M,Scanlan,Jeremy,42,"Louisville, CO, US",2.0,0,0,0,0,0,2.0
+F,Sammons,Marianne,46,"Denver, CO, US",2.8,0,1,0,0,0.5,2.8
+M,Marshall,Tyler,28,"Orem, UT, US",2.0,0,0,0,0,0,2.0
+F,Sonnanstine,Amy,45,"Boulder, CO, US",8.9,0,0,0,30,0,8.9
+F,Rust,Lindsey,40,"Draper, UT, US",2.0,0,0,0,0,0,2.0
+M,Russell,Zachary,31,"Carbondale, CO, US",4.0,1,0,0,0,0,4.0
+M,Barkdull,David,41,"Ladera Ranch, CA, US",2.0,0,0,0,0,0,2.0
+M,Yoshikawa,Sosuke,44,"Shinjyuku-ku, 13, JP",4.0,1,0,0,0,0,4.0
+F,O'Farrell,Jitka,47,"Lakewood, CO, US",2.8,0,1,0,0,0.5,2.8
+F,Poulton,Lily,23,"American Fork, UT, US",2.0,0,0,0,0,0,2.0
+F,Been,Kelsy,38,"Marble, CO, US",2.8,0,1,0,0,0.5,2.8
+M,Holliday,David,62,"Cincinnati, OH, US",6.2,1,0,0,2,0,6.2
+M,Fisher,Will,53,"Carbondale, CO, US",6.0,0,1,1.875,2,0.5,6.0
+M,Holman,Sean,46,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+F,Terwilliger,Melissa,41,"Cleveland, OH, US",2.0,0,0,0,0,0,2.0
+M,Hoppin,Tim,44,"Steamboat Springs, CO, US",4.0,1,0,0,0,0,4.0
+M,Loseke,Brian,40,"Colorado Springs, CO, US",4.0,1,0,0,0,0,4.0
+M,Walker,Kevin,31,"Saint Helena, CA, US",5.4,1,0,1,0,0,5.4
+F,Crockett,Ivy,35,"Albuquerque, NM, US",2.0,0,0,0,0,0,2.0
+M,Ventrella,Nicholas,33,"Denver, CO, US",4.2,0,0,0,2,0,4.2
+F,Senf,Ellen,32,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Whitehead,Ben,38,"Aurora, CO, US",5.6,0,0,0,5,0,5.6
+M,Sensoli,Stephen,38,"West Branch, MI, US",4.0,1,0,0,0,0,4.0
+M,Gordon,Ethan,26,"North Richland Hills, TX, US",2.0,0,0,0,0,0,2.0
+F,Klemens,Irene,28,"Fort Collins, CO, US",2.0,0,0,0,0,0,2.0
+M,Kelly,Neil,43,"Telluride, CO, US",2.0,0,0,0,0,0,2.0
+M,Sahni,Vishal,45,"Los Angeles, CA, US",2.0,0,0,0,0,0,2.0
+M,Hill,Brian,42,"Grand Junction, CO, US",2.0,0,0,0,0,0,2.0
+F,Ramsay,Maya,42,"Placitas, NM, US",2.0,0,0,0,0,0,2.0
+M,Martin,Nicholas,42,"Littleton, CO, US",4.0,1,0,0,0,0,4.0
+M,Fleming,Stan,46,"Nashville, TN, US",2.0,0,0,0,0,0,2.0
+F,Rambikur,Laura,39,"Littleton, CO, US",3.4,0,0,0,1,0,3.4
+M,Mcafee,Ryan,44,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+F,Smith,Andrea,38,"Costa Mesa, CA, US",2.0,0,0,0,0,0,2.0
+M,Tertychnyi,Gennadii,45,"Issaquah, WA, US",4.0,1,0,0,0,0,4.0
+M,Feickert,Zach,35,"Durango, CO, US",4.0,1,0,0,0,0,4.0
+M,Gonzales,Josh,31,"Los Alamos, NM, US",4.0,1,0,0,0,0,4.0
+M,Kawai,Tatsuya,48,"Campbell, CA, US",2.0,0,0,0,0,0,2.0
+F,Weintraub,Karen,40,"Chico, CA, US",2.0,0,0,0,0,0,2.0
+M,Macdougall,Daniel,41,"Englewood, CO, US",4.0,1,0,0,0,0,4.0
+M,Milan,Eric,40,"Durango, CO, US",2.0,0,0,0,0,0,2.0
+M,Kade,Matthew,29,"Farmington, NM, US",2.0,0,0,0,0,0,2.0
+F,Jakober,Sarah,32,"La Grande, OR, US",2.0,0,0,0,0,0,2.0
+M,Brooks,Jeremy,52,"Colorado Springs, CO, US",3.8,0,0,0,1.5,0,3.8
+M,Talkington,Tyler,41,"Idaho Springs, CO, US",2.0,0,0,0,0,0,2.0
+F,Dawson,Tessa,40,"Aspen, CO, US",5.6,0,1,0,3,0.5,5.6
+M,Dehaan,Nicholas,36,"Littleton, CO, US",2.0,0,0,0,0,0,2.0
+M,Mulinyawe,Josam,47,"San Jose, CA, US",8.0,2,0,0,0,0,8.0
+M,Martin,Mickey,35,"Evergreen, CO, US",9.4,2,0,1,0,0,9.4
+M,Trimboli,Brendan,36,"Durango, CO, US",5.7,1,1,0,0,0.5,5.7
+M,Darr,Owen,39,"Denver, CO, US",4.0,1,0,0,0,0,4.0
+M,Hibdon,Dusty,31,"Palmer, AK, US",2.0,0,0,0,0,0,2.0
+M,Brutger,Steven,43,"Bozeman, MT, US",4.0,1,0,0,0,0,4.0
+M,O'Sullivan,James,40,"Englewood, CO, US",2.0,0,0,0,0,0,2.0
+M,Keller,James,53,"Reno, NV, US",2.0,0,0,0,0,0,2.0
+M,Braun,Chad,44,"Littleton, CO, US",2.0,0,0,0,0,0,2.0
+M,Williams,Crockett,33,"Oakland, CA, US",2.0,0,0,0,0,0,2.0
+F,Vatch,Hayley,37,"Indian Hills, CO, US",2.0,0,0,0,0,0,2.0
+M,Lawton,Joshua,48,"Broomfield, CO, US",4.9,0,0,1.25,2,0,4.9
+M,Ahrens,Coleman,32,"Palmer, AK, US",2.0,0,0,0,0,0,2.0
+M,Higgins,Shaun,38,"Denver, CO, US",11.3,2,1,0,0,0.5,11.3
+M,Hein,Nate,46,"Ignacio, CO, US",4.0,1,0,0,0,0,4.0
+M,Bentley,Jojo,27,"Seattle, WA, US",4.0,1,0,0,0,0,4.0
+M,Akiyoshi,Jordan,29,"Boulder, CO, US",6.8,1,0,0,3,0,6.8
+M,Lee,John,33,"Salida, CO, US",2.0,0,0,0,0,0,2.0
+M,Calabrese,Maurizio,50,"Colorado Springs, CO, US",5.2,0,0,0,4,0,5.2
+M,Stewart,Patrick,39,"Littleton, CO, US",22.6,3,1,0,0,0.5,22.6
+M,Milner,William,30,"Breckenridge, CO, US",4.0,1,0,0,0,0,4.0
+M,Mcdonough,Tim,44,"Saint John, NB, CA",4.0,1,0,0,0,0,4.0
+F,Curtis,Cayla,33,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+F,Weinberg,Morgan,34,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+F,Wagenknecht,Lydia,29,"Niwot, CO, US",2.0,0,0,0,0,0,2.0
+M,Robinson,Max,31,"Fruita, CO, US",4.0,1,0,0,0,0,4.0
+M,Sheetz-Willard,Jacob,35,"Leadville, CO, US",3.8,0,0,0,1.5,0,3.8
+M,Brown,Don,55,"Santa Fe, NM, US",2.0,0,0,0,0,0,2.0
+M,Merrick,Steve,35,"Oakland, CA, US",4.5,0,0,0,2.5,0,4.5
+M,Newby,Cale,22,"Bemidji, MN, US",2.0,0,0,0,0,0,2.0
+M,Spike,Taylor,46,"Harrisburg, OR, US",2.0,0,0,0,0,0,2.0
+F,Larson,Tracy,43,"Breckenridge, CO, US",2.0,0,0,0,0,0,2.0
+F,Montague,Dawn,46,"Aztec, NM, US",8.0,2,0,0,0,0,8.0
+M,Nichols,Alex,39,"Manitou Springs, CO, US",5.7,1,1,0,0,0.5,5.7
+M,Marzen,Mark,38,"Golden, CO, US",4.0,1,0,0,0,0,4.0
+M,Jenkins,Scott,44,"Hopewell, NJ, US",2.0,0,0,0,0,0,2.0
+F,Mintz,Trish,47,"Callander, ON, CA",7.2,0,0,2.25,10,0,7.2
+F,Wenger,Emily,31,"Fort Collins, CO, US",4.0,1,0,0,0,0,4.0
+M,Rogers,Vince,40,"Crested Butte, CO, US",9.4,2,0,0,1,0,9.4
+M,Godwin,Sean,43,"Midway, UT, US",4.0,1,0,0,0,0,4.0
+F,Black,Olivia,25,"Arcata, CA, US",2.0,0,0,0,0,0,2.0
+M,Rosales,Jesse,38,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+F,Decker,Stephanie,37,"Bremerton, WA, US",4.0,1,0,0,0,0,4.0
+M,Arena,Anthony,40,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+M,Grubbs,Eric,29,"Indianapolis, IN, US",4.0,1,0,0,0,0,4.0
+F,Yanko,Devon,42,"Howard, CO, US",5.0,0,1,2,0,0.5,5.0
+M,Stimson,Patrick,44,"Louisville, CO, US",8.0,2,0,0,0,0,8.0
+M,Vinsel,Scott,32,"Durango, CO, US",4.0,1,0,0,0,0,4.0
+F,Marbaker,Rachel,28,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+M,Myung,Smith,57,"Ann Arbor, MI, US",2.0,0,0,0,0,0,2.0
+M,Bare,Cody,24,"Broomfield, CO, US",4.8,0,0,0,3,0,4.8
+M,Pool,Robert,42,"Oregon City, OR, US",4.0,1,0,0,0,0,4.0
+F,Mantie,Stephanie,31,"Fort Collins, CO, US",5.9,0,0,0,6,0,5.9
+M,Jamieson,Theodore,37,"Arvada, CO, US",4.0,1,0,0,0,0,4.0
+M,Nevala-Plagemann,Jonny,33,"Salt Lake City, UT, US",4.0,1,0,0,0,0,4.0
+F,Sicchio,Renee,50,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Boyle,Bryan,54,"Salida, CO, US",4.0,1,0,0,0,0,4.0
+M,Eichenlaub,Andrew,27,"Morrison, CO, US",5.2,0,0,0,4,0,5.2
+F,Colwell,Sarah,36,"Westminster, MD, US",2.0,0,0,0,0,0,2.0
+M,Messerschmitt,Patrick,47,"Cincinnati, OH, US",9.8,2,0,1.5,0,0,9.8
+M,Nave,Richard,58,"Ferndale, MI, US",4.0,1,0,0,0,0,4.0
+M,Ehler,Mark,35,"South Burlington, VT, US",6.2,1,0,0,2,0,6.2
+M,Smith,Jim,54,"Gilbert, AZ, US",8.0,2,0,0,0,0,8.0
+F,Nebel,Mary Beth,45,"Baltimore, MD, US",2.0,0,0,0,0,0,2.0
+M,Stolen,Josh,28,"Denver, CO, US",4.5,0,0,0,2.5,0,4.5
+M,Pearce,Lance,43,"Monument, CO, US",5.8,1,0,0,1.5,0,5.8
+M,Revenis,Bradley,38,"Kailua, HI, US",4.8,0,0,3,0,0,4.8
+M,Congdon,Jeff,48,"Seattle, WA, US",2.0,0,0,0,0,0,2.0
+F,Ehler,Suzanne,41,"Lakewood, CO, US",11.0,1,2,0,3.5,1,11.0
+F,Entrekin,Rachel,33,"Conifer, CO, US",2.0,0,0,0,0,0,2.0
+M,Tate,David,44,"Dahlonega, GA, US",2.0,0,0,0,0,0,2.0
+F,Schulman,Chloe,34,"Corona, CA, US",2.0,0,0,0,0,0,2.0
+M,Putnam,Roger,41,"Reno, NV, US",2.0,0,0,0,0,0,2.0
+F,Normand,Sarah,43,"Contoocook, NH, US",2.0,0,0,0,0,0,2.0
+M,Berdanier,Aaron,41,"Manitou Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Rodrã­Guez,Jose,31,"Panama, , PA",2.0,0,0,0,0,0,2.0
+M,Fuller,Waylon,46,"Portland, OR, US",2.0,0,0,0,0,0,2.0
+F,Harris,Cassie,39,"Bryant, AR, US",4.0,1,0,0,0,0,4.0
+M,Traub,Michael,47,"Denver, CO, US",9.4,1,2,0,1,1,9.4
+M,Rylance,Adam,25,"Arvada, CO, US",2.0,0,0,0,0,0,2.0
+M,Boren,James,43,"Phoenix, AZ, US",4.0,1,0,0,0,0,4.0
+M,Gerike,Brian,28,"Centennial, CO, US",2.0,0,0,0,0,0,2.0
+M,Christensen,Jon,29,"Granby, CO, US",2.0,0,0,0,0,0,2.0
+F,Kulukundis,Delia,41,"Long Island City, NY, US",9.1,1,0,2,10,0,9.1
+M,Klein,Michael,46,"Salt Lake City, UT, US",4.0,1,0,0,0,0,4.0
+F,Burch,Kayoko,52,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Kanwischer,Derek,49,"Missoula, MT, US",16.0,3,0,0,0,0,16.0
+F,Christiansen,Rachael,37,"Pagosa Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Burch,Christopher,51,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+F,Shepherd-Powell,Julie,43,"Boone, NC, US",2.0,0,0,0,0,0,2.0
+M,Milas,Anthony,35,"Denver, CO, US",6.8,1,0,0,3,0,6.8
+F,Wannamaker,Constance,52,"El Paso, TX, US",2.0,0,0,0,0,0,2.0
+M,Mathias,Shane,30,"Thornton, CO, US",2.0,0,0,0,0,0,2.0
+M,Poulatov,Azam,48,"Brooklyn, NY, US",2.0,0,0,0,0,0,2.0
+F,Defilippi,Kathryn,42,"Natrona Heights, PA, US",2.0,0,0,0,0,0,2.0
+F,Anderson,Kristina,47,"Castle Rock, CO, US",2.0,0,0,0,0,0,2.0
+M,Stroz,Bradley,29,"Littleton, CO, US",4.0,1,0,0,0,0,4.0
+F,Nakauchi,Laurie,55,"Lakewood, CO, US",6.8,0,0,10,0,0,6.8
+M,Livingstone,Matthew,44,"Wynnewood, PA, US",3.4,0,0,1,0,0,3.4
+M,Reich,Marc,39,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+M,Murphy,Jeason,45,"Salida, CO, US",2.0,0,0,0,0,0,2.0
+M,Harms,Hunter,27,"Irvine, CA, US",2.0,0,0,0,0,0,2.0
+M,Larson,Jacob,32,"Lakewood, CO, US",2.0,0,0,0,0,0,2.0
+M,Anderson,Brad,45,"Thornton, CO, US",2.0,0,0,0,0,0,2.0
+M,Stinson,Tyler,37,"Tucson, AZ, US",8.0,2,0,0,0,0,8.0
+M,Loveall,Justin,33,"Bagdad, AZ, US",8.0,2,0,0,0,0,8.0
+M,Phinney,Justyn,48,"Loveland, CO, US",5.4,1,0,0,1,0,5.4
+M,Reagins,Ryan,20,"Brea, CA, US",2.0,0,0,0,0,0,2.0
+M,Mejia,Daniel,30,"Portland, ME, US",2.0,0,0,0,0,0,2.0
+M,Picard,Francis,44,"montreal, QC, CA",4.0,1,0,0,0,0,4.0
+F,Campanella,Cassy,33,"Cumming, GA, US",2.0,0,0,0,0,0,2.0
+M,Pena,Mateusz,33,"Hotchkiss, CO, US",2.0,0,0,0,0,0,2.0
+M,Keefe,Ben,46,"Kansas City, MO, US",5.6,0,0,5,0,0,5.6
+F,Hoffman,Megan,24,"Durango, CO, US",2.0,0,0,0,0,0,2.0
+M,Hough,Luke,41,"Castle Rock, CO, US",2.0,0,0,0,0,0,2.0
+M,Born,Erik,36,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+F,Vollentine,Lauren,32,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+M,Crespo,Daniel,39,"Leadville, CO, US",4.0,1,0,0,0,0,4.0
+M,Smith,Dave,43,"Hales Corners, WI, US",2.0,0,0,0,0,0,2.0
+M,Lee,Anthony,31,"Boulder, CO, US",4.0,0,2,0,0,1,4.0
+M,Hommer,Garrison,36,"Lakewood, CO, US",4.0,1,0,0,0,0,4.0
+M,Howard,Robert,37,"Englewood, CO, US",4.0,0,2,0,0,1,4.0
+F,Williford,Mindy,42,"Broomfield, CO, US",2.0,0,0,0,0,0,2.0
+M,Hites,Jared,40,"Akron, OH, US",2.0,0,0,0,0,0,2.0
+F,Miller,Clara,27,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+M,Drew,Darren,42,"London, , RU",2.0,0,0,0,0,0,2.0
+M,Doring,Brian,37,"Gastonia, NC, US",2.0,0,0,0,0,0,2.0
+M,Winslett,Kris,43,"Austin, TX, US",2.0,0,0,0,0,0,2.0
+M,Brunyer,Marco,20,"Brea, CA, US",2.0,0,0,0,0,0,2.0
+M,Haunschmidt,Patrick,38,"North Vancouver, BC, CA",4.0,1,0,0,0,0,4.0
+F,Mannhard,Jacquie,40,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+F,Ochs,Monica,55,"Bellingham, WA, US",2.0,0,0,0,0,0,2.0
+F,Olsen,Anna,35,"Truckee, CA, US",2.0,0,0,0,0,0,2.0
+M,Seymour,Matthew,40,"Arvada, CO, US",2.0,0,0,0,0,0,2.0
+F,Ortiz,Anita,60,"Eagle, CO, US",2.0,0,0,0,0,0,2.0
+F,Minkstein,Julia,21,"El Granada, CA, US",2.0,0,0,0,0,0,2.0
+F,Brickett,Nichole,31,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Metzger,Daniel,30,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Allen,Phil,49,"Littleton, CO, US",2.0,0,0,0,0,0,2.0
+F,Perez-Lopez,Michele,28,"Broomfield, CO, US",2.0,0,0,0,0,0,2.0
+F,Sousa,Thea,25,"Guilford, CT, US",2.0,0,0,0,0,0,2.0
+M,Brownlee,Brian,41,"Tulsa, OK, US",2.0,0,0,0,0,0,2.0
+M,Cunningham,Jake,36,"Walnut Creek, CA, US",8.0,2,0,0,0,0,8.0
+M,Shemanski,Randy,47,"Dunmore, PA, US",8.8,1,0,0,10,0,8.8
+F,Geib,Michelle,48,"Steamboat Springs, CO, US",3.8,0,0,0,1.5,0,3.8
+F,Kitzig,Mary,67,"Buena Vista, CO, US",6.8,0,0,0,10,0,6.8
+F,Fogelberg,Kate,45,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Pirker,Markus,51,"Victoria, BC, CA",4.0,1,0,0,0,0,4.0
+M,Greathouse,Tristan,26,"San Francisco, CA, US",2.0,0,0,0,0,0,2.0
+M,Swenson,Alexander,24,"Brooklyn, NY, US",2.0,0,0,0,0,0,2.0
+M,Rivers,Shea,40,"Durango, CO, US",6.5,1,0,0,2.5,0,6.5
+M,Blair,Brian,47,"Silverado, CA, US",2.0,0,0,0,0,0,2.0
+F,Thompson,Rebecca,39,"Columbia, MO, US",2.0,0,0,0,0,0,2.0
+M,Bodner,Joe,45,"Loveland, OH, US",7.9,1,0,6.125,0,0,7.9
+F,Bond,Natalie,38,"Missoula, MT, US",2.0,0,0,0,0,0,2.0
+M,Schultz,Joshua,43,"Evergreen, CO, US",5.8,1,0,0,1.5,0,5.8
+M,Corbett,Austin,30,"Flagstaff, AZ, US",2.0,0,0,0,0,0,2.0
+M,Polozola,Lane,38,"Seattle, WA, US",2.0,0,0,0,0,0,2.0
+M,White,Robert,42,"Oakland, CA, US",2.0,0,0,0,0,0,2.0
+M,Webster,Robert,35,"Waynesboro, PA, US",2.0,0,0,0,0,0,2.0
+M,Demuri,Alex,30,"Westcliffe, CO, US",2.0,0,0,0,0,0,2.0
+F,Kieffer,Sarah,28,"Commerce City, CO, US",6.7,0,0,0,9.5,0,6.7
+F,Bailey,Jo,48,"Wanaka, , NZ",2.0,0,0,0,0,0,2.0
+M,Walker,Kevin,38,"Sandy, UT, US",4.0,1,0,0,0,0,4.0
+F,Booth,Sarah,47,"Jones, OK, US",2.0,0,0,0,0,0,2.0
+M,Sullivan,Ryan,34,"Grand Junction, CO, US",2.0,0,0,0,0,0,2.0
+M,Kellam,Alex,26,"Fort Collins, CO, US",4.0,1,0,0,0,0,4.0
+F,Bourret,Michelle,38,"Los Alamos, NM, US",2.0,0,0,0,0,0,2.0
+F,Bacon,Taylor,27,"Fort Collins, CO, US",2.0,0,0,0,0,0,2.0
+M,Cutie,Nathaniel,26,"Baldwinsville, NY, US",2.0,0,0,0,0,0,2.0
+F,Schiavoni,Alexandra,35,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+F,Brisko,Lindsay,36,"Gypsum, CO, US",7.4,0,0,2.75,11,0,7.4
+M,Lubell,Eric,47,"SalidaSalida, CO, US",7.6,1,0,0,5,0,7.6
+F,Osteen,Marianne,64,"Steamboat Springs, CO, US",7.0,1,1,0,1,0.5,7.0
+F,Cadow,Charlotte,30,"Jackson, WY, US",4.0,1,0,0,0,0,4.0
+F,Vanderburg,Kari,32,"Buena Vista, CO, US",2.0,0,0,0,0,0,2.0
+M,Green,Will,43,"Fort Worth, TX, US",4.0,1,0,0,0,0,4.0
+M,Hall,Chazz,36,"Creede, CO, US",2.0,0,0,0,0,0,2.0
+F,Myntti,Chelsea,30,"Boulder, CO, US",4.2,0,0,2,0,0,4.2
+F,Bambrick,Rachel,32,"Philadelphia, PA, US",2.0,0,0,0,0,0,2.0
+M,Sloan,Matthew,52,"Denver, CO, US",4.0,1,0,0,0,0,4.0
+M,Bielak,Ross,53,"Littleton, CO, US",8.4,1,0,0,8,0,8.4
+M,Kaiser,Ryan,46,"Bend, OR, US",2.0,0,0,0,0,0,2.0
+M,Kilpatrick,John (Muck),42,"Pueblo, CO, US",10.5,1,2,0,3.5,1,11.0
+M,Compagnone,Brian,51,"Arlington, VA, US",2.0,0,0,0,0,0,2.0
+F,Senol,Derya,29,"Telluride, CO, US",10.6,1,1,0,11,0.5,10.6
+F,Rose,Kate,34,"Arvada, CO, US",3.0,0,0,0.625,0,0,3.0
+M,Rapp,Kevin,43,"Wildwood, MO, US",2.0,0,0,0,0,0,2.0
+M,Boston,Andrew,43,"Cherry Hill, NJ, US",2.0,0,0,0,0,0,2.0
+M,Widmann,Simon,32,"Ixelles, , BE",2.0,0,0,0,0,0,2.0
+M,Clark,Jed,46,"Hesperia, CA, US",4.0,1,0,0,0,0,4.0
+M,Whewell,Eric,42,"Denver, CO, US",4.5,0,0,0,2.5,0,4.5
+F,Walter,Emily,31,"Longmont, CO, US",2.0,0,0,0,0,0,2.0
+M,Doucette,David,25,"Fort Collins, CO, US",2.0,0,0,0,0,0,2.0
+M,Sexton,Brendan,29,"Atlanta, GA, US",2.0,0,0,0,0,0,2.0
+M,Cromar,Cale,22,"Sandy, UT, US",2.0,0,0,0,0,0,2.0
+F,Merling,Rachel,36,"Colorado Springs, CO, US",3.8,0,0,0,1.5,0,3.8
+F,Baumer,Grace,26,"Leadville, CO, US",2.0,0,0,0,0,0,2.0
+M,Babcock,Matt,37,"Aurora, CO, US",4.2,0,0,0,2,0,4.2
+M,Erskine,Rob,54,"Fort Collins, CO, US",2.0,0,0,0,0,0,2.0
+M,Glibbery,Matthew,34,"Mill Valley, CA, US",2.0,0,0,0,0,0,2.0
+M,Galef-Brown,Nathan,35,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+F,Voos,Jessa,43,"Wamego, KS, US",2.0,0,0,0,0,0,2.0
+M,Richardson,Isaac,27,"Wheat Ridge, CO, US",2.0,0,0,0,0,0,2.0
+F,Watson,Marisa,38,"Salida, CO, US",7.3,0,1,0,8.5,0.5,7.3
+M,Hoffner,Kyle,32,"Vancouver, BC, CA",2.0,0,0,0,0,0,2.0
+M,Traver,Vincent,28,"Alexandria, VA, US",2.0,0,0,0,0,0,2.0
+M,Valaitis,Stephen,45,"Golden, CO, US",6.7,0,0,9.5,0,0,6.7
+M,Kostiuk,Jordan,34,"Providence, RI, US",2.0,0,0,0,0,0,2.0
+M,Green,Vince,49,"Broomfield, CO, US",2.0,0,0,0,0,0,2.0
+M,Pilcher,Matthew,21,"Plano, TX, US",2.0,0,0,0,0,0,2.0
+M,Lieber,Elan,35,"Richmond, CA, US",2.8,0,1,0,0,0.5,2.8
+M,Kubes,Dan,40,"Golden, CO, US",5.6,0,1,0,3,0.5,5.6
+F,Lehner,Taylor,24,"Bethesda, MD, US",2.0,0,0,0,0,0,2.0
+F,Polski,Rachel,43,"Leadville, CO, US",4.0,1,0,0,0,0,4.0
+F,Pluhar,Liv,23,"Buena Vista, CO, US",5.2,0,0,0,4,0,5.2
+M,Reichelt,Don,39,"Fairplay, CO, US",6.8,0,0,0,10,0,6.8
+M,Randall,Brian,37,"Portland, OR, US",4.5,0,0,0,2.5,0,4.5
+F,Judy,Alicia,46,"Cave Creek, AZ, US",2.0,0,0,0,0,0,2.0
+M,Lanier,Greg,31,"Fort Worth, TX, US",4.0,1,0,0,0,0,4.0
+M,Addison,Steve,45,"North Vancouver, BC, CA",2.0,0,0,0,0,0,2.0
+M,Anderson,Nathaniel,35,"Creede, CO, US",2.8,0,1,0,0,0.5,2.8
+F,Connors,Julia,25,"Durango, CO, US",2.0,0,0,0,0,0,2.0
+M,Rich,Evan,45,"Grand Junction, CO, US",8.0,2,0,0,0,0,8.0
+F,Haskins,Denise,33,"Moriarty, NM, US",2.0,0,0,0,0,0,2.0
+F,Moore,Angela,42,"New Orleans, LA, US",2.0,0,0,0,0,0,2.0
+M,Bachman,Tod,51,"Missoula, MT, US",2.0,0,0,0,0,0,2.0
+M,Passmore,Erick,29,"Howard, CO, US",2.0,0,0,0,0,0,2.0
+M,Ulm,Rob,48,"Charleston, IL, US",2.0,0,0,0,0,0,2.0
+M,Paulazzo,Bryon,35,"Long Lake, MN, US",2.0,0,0,0,0,0,2.0
+M,Bateman,Luke,38,"Dallas, TX, US",16.0,3,0,0,0,0,16.0
+M,Lassen,Ryan,36,"Nederland, CO, US",2.8,0,1,0,0,0.5,2.8
+M,Hurley,John,44,"Henrico, VA, US",2.0,0,0,0,0,0,2.0
+M,Anderson,Matthew,39,"Denver, CO, US",9.4,2,0,1,0,0,9.4
+M,Henne,Bob,39,"Wheaton, IL, US",2.0,0,0,0,0,0,2.0
+F,Norton,Natalie,32,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Paul,Jeffrey,42,"Azilda, ON, CA",2.0,0,0,0,0,0,2.0
+M,Ruyle,Ben,50,"Baraboo, WI, US",4.0,1,0,0,0,0,4.0
+M,Riley,Kody,43,"Denver, CO, US",4.0,0,2,0,0,1,4.0
+M,Okoniewski,David,31,"Nathrop, CO, US",7.7,0,0,0,16,0,7.7
+M,Gandhi,Karthikeyan,45,"Rocklin, CA, US",2.0,0,0,0,0,0,2.0
+F,Roth,Katie,47,"New Orleans, LA, US",2.0,0,0,0,0,0,2.0
+M,Zaney,Greg,38,"Santa Fe, NM, US",2.0,0,0,0,0,0,2.0
+M,Nicastro,Mike,27,"Englewood, CO, US",2.0,0,0,0,0,0,2.0
+M,Taussig,Derek,40,"Wamego, KS, US",2.0,0,0,0,0,0,2.0
+M,Giacopuzzi,Ian,34,"Evergreen, CO, US",6.5,1,0,0,2.5,0,6.5
+F,Rowed,Kylie,35,"Salt Lake City, UT, US",2.0,0,0,0,0,0,2.0
+F,Strong,Sarah,40,"Arvada, CO, US",4.0,1,0,0,0,0,4.0
+M,Branham,Joshua,33,"Boulder, CO, US",2.8,0,1,0,0,0.5,2.8
+F,Donohoe,Melissa,34,"Broomfield, CO, US",2.0,0,0,0,0,0,2.0
+M,Hollister,Scott,40,"Colorado Springs, CO, US",4.0,0,2,0,0,1,4.0
+M,Peters,Christopher,31,"Ashburn, VA, US",2.0,0,0,0,0,0,2.0
+F,Mcclung,Kaitlyn,31,"Salt Lake City, UT, US",2.0,0,0,0,0,0,2.0
+M,Bonkowsky,Josh,55,"Salt Lake City, UT, US",2.0,0,0,0,0,0,2.0
+F,Brown,Katie,38,"Sandy, UT, US",2.8,0,1,0,0,0.5,2.8
+F,Hamel-Davis,Camille,31,"Littleton, CO, US",3.4,0,0,0,1,0,3.4
+M,Boruk,Sviatoslav,38,"Milton, ON, CA",2.0,0,0,0,0,0,2.0
+M,Wisdom,Gavin,37,"Kalispell, MT, US",2.0,0,0,0,0,0,2.0
+M,Mcallister,Garrett,39,"Golden, CO, US",2.8,0,1,0,0,0.5,2.8
+F,Mcknight,Angela,46,"St. Louis, MO, US",2.0,0,0,0,0,0,2.0
+M,Hartley,Kian,27,"Broomfield, CO, US",2.0,0,0,0,0,0,2.0
+M,Pethalsky,P.J.,49,"Payson, AZ, US",2.0,0,0,0,0,0,2.0
+M,Smith,Brandon,43,"Rehoboth Beach, DE, US",2.0,0,0,0,0,0,2.0
+M,Almazan,Martin,34,"Vail, CO, US",8.0,2,0,0,0,0,8.0
+M,Crowley,Mike,55,"Portland, OR, US",2.0,0,0,0,0,0,2.0
+M,Andersen,Allen,38,"Westminster, CO, US",2.0,0,0,0,0,0,2.0
+F,Gegen,Annie,25,"Golden, CO, US",2.0,0,0,0,0,0,2.0
+M,Banks,Jacob,30,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Wells,Ben,28,"Golden, CO, US",4.2,0,0,0,2,0,4.2
+F,Andersen,Joanie,47,"Louisville, CO, US",3.4,0,0,0,1,0,3.4
+F,Thomas,Christina,31,"Broomfield, CO, US",3.4,0,0,0,1,0,3.4
+M,Fowlkes,Jonathan,43,"Missoula, MT, US",2.0,0,0,0,0,0,2.0
+M,Needle,Alan,39,"Boone, NC, US",4.0,1,0,0,0,0,4.0
+M,Sagan,Lukasz,41,"Krzczonow, , PL",2.0,0,0,0,0,0,2.0
+M,Samuelson,Peter,35,"Norwood, CO, US",16.0,3,0,0,0,0,16.0
+F,Fragoso,Jill,52,"New Orleans, LA, US",2.8,0,1,0,0,0.5,2.8
+M,Jenson,Jeremiah,48,"Aurora, CO, US",4.0,1,0,0,0,0,4.0
+M,Montano,Bryce,34,"Albuquerque, NM, US",5.4,1,0,1,0,0,5.4
+M,Burcal,Chris,34,"Papillion, NE, US",4.0,1,0,0,0,0,4.0
+M,Ross,William,36,"Charleston, WV, US",2.0,0,0,0,0,0,2.0
+F,Vinson,Callie,38,"Scottsdale, AZ, US",2.0,0,0,0,0,0,2.0
+M,Berardi,Steve,42,"Seattle, WA, US",2.0,0,0,0,0,0,2.0
+M,Lancaster,Craig,40,"Fleetwood, NC, US",11.3,2,1,0,0,0.5,11.3
+M,Aluia,Tony,36,"New Market, AL, US",2.0,0,0,0,0,0,2.0
+M,Aguirre,Victoriano,44,"Midland, TX, US",2.0,0,0,0,0,0,2.0
+M,Putelis,Martins,42,"Denver, CO, US",12.4,2,0,0,8,0,12.4
+M,Robison,Jacob,35,"Arvada, CO, US",6.9,1,0,2.3125,1,0,6.9
+M,Borden,Timothy,35,"Gallup, NM, US",4.0,1,0,0,0,0,4.0
+M,Mayer,Karl,34,"Boulder, CO, US",8.0,2,0,0,0,0,8.0
+M,Wyker,Brett,47,"Longmont, CO, US",3.4,0,0,1,0,0,3.4
+M,Young,Eric,33,"Ogden, UT, US",2.0,0,0,0,0,0,2.0
+M,Gillogly,Mitchell,31,"Omaha, NE, US",2.0,0,0,0,0,0,2.0
+M,Nguyen,Bruce,49,"Citrus Heights, CA, US",2.0,0,0,0,0,0,2.0
+M,Hovenga,Bard,36,"Northport, NY, US",4.0,1,0,0,0,0,4.0
+M,Stokes,Scott,28,"Saratoga Springs, UT, US",2.0,0,0,0,0,0,2.0
+M,Connors,Stan,26,"Durango, CO, US",4.0,1,0,0,0,0,4.0
+F,Kirkpatrick,Jennifer,52,"Bonham, TX, US",2.0,0,0,0,0,0,2.0
+M,Panas,Robert,40,"Boulder, CO, US",2.8,0,1,0,0,0.5,2.8
+F,Mielke,Michala,39,"Davenport, IA, US",6.8,0,0,0,10,0,6.8
+M,Strzelecki,Graham,25,"Washington, DC, US",2.0,0,0,0,0,0,2.0
+F,Ormsby,Yumi,40,"Englewood, CO, US",4.0,1,0,0,0,0,4.0
+M,Rickard,Cameron,29,"Montrose, CO, US",7.3,0,1,0,8.5,0.5,7.3
+M,Bubri,Dom,35,"Wheat Ridge, CO, US",4.0,1,0,0,0,0,4.0
+F,Topping,Chelsey,42,"Canmore, AB, CA",2.0,0,0,0,0,0,2.0
+M,Hokenson,Nathan,30,"Denver, CO, US",5.8,0,1,0,3.5,0.5,5.8
+M,Kreitler,Nick,36,"Denver, CO, US",5.0,0,0,0,3.5,0,5.0
+M,Stuart,Ian,42,"Carbondale, CO, US",8.0,2,0,0,0,0,8.0
+M,Welling,Douglas,45,"New Gloucester, ME, US",2.0,0,0,0,0,0,2.0
+M,Baker,Jason,26,"Carver, MA, US",2.0,0,0,0,0,0,2.0
+M,Wendel,Nathan,29,"Nathrop, CO, US",9.5,1,1,0,6,0.5,9.5
+F,Howell,Shannon,46,"Simpsonville, SC, US",2.0,0,0,0,0,0,2.0
+M,Dollar,Chris,43,"Birmingham, AL, US",4.0,1,0,0,0,0,4.0
+M,Moore,Matthew,38,"Tulsa, OK, US",2.0,0,0,0,0,0,2.0
+M,Andres,Kyle,39,"Park City, UT, US",8.0,2,0,0,0,0,8.0
+M,Long,Joshua,35,"Seattle, WA, US",2.0,0,0,0,0,0,2.0
+M,Floyd,Ian,33,"Leadville, CO, US",2.0,0,0,0,0,0,2.0
+M,Shrader,Jack,36,"Phoenix, AZ, US",2.0,0,0,0,0,0,2.0
+M,Pager,Jeremy,41,"Scottsdale, AZ, US",16.0,3,0,0,0,0,16.0
+F,Wendel,Paige,29,"Nathrop, CO, US",7.4,0,1,0,9,0.5,7.4
+F,Becker,Saskia,28,"Albuquerque, NM, US",2.0,0,0,0,0,0,2.0
+F,Wood,Guirong,47,"Round Rock, TX, US",2.0,0,0,0,0,0,2.0
+M,Langsfeld,Cosmo,38,"Gunnison, CO, US",6.2,1,0,1,1,0,6.2
+M,Gleason,Jeremy,42,"Arvada, CO, US",5.4,1,0,0,1,0,5.4
+M,Cavey,Taylor,34,"Golden, CO, US",2.0,0,0,0,0,0,2.0
+M,Scheer,Ed,52,"Wilson, WY, US",8.0,2,0,0,0,0,8.0
+F,Norfleet,Rachael,30,"Belgrade, MT, US",2.0,0,0,0,0,0,2.0
+M,Whitestone,Christopher,44,"Denver, CO, US",5.7,1,1,0,0,0.5,5.7
+M,Lagerquist,Ryan,38,"Boulder, CO, US",4.8,1,0,0.5,0,0,4.8
+M,Craig,Robert,40,"Denver, CO, US",4.0,1,0,0,0,0,4.0
+M,Corne,Nicholas,34,"Buena Vista, CO, US",4.0,1,0,0,0,0,4.0
+F,Nelson,Sally,50,"Watford City, ND, US",2.0,0,0,0,0,0,2.0
+M,Elliott,Tom,44,"Midland, TX, US",16.0,3,0,0,0,0,16.0
+F,Williams,Cecelia,28,"Leadville, CO, US",2.0,0,0,0,0,0,2.0
+M,Ralph,Tom,40,"Monument, CO, US",2.0,0,0,0,0,0,2.0
+M,Edwards,Jonathan,36,"Sandy, UT, US",2.0,0,0,0,0,0,2.0
+M,Oyler,David,41,"Bailey, CO, US",2.0,0,0,0,0,0,2.0
+F,Henderson,Shaheen,40,"Rockwall, TX, US",2.0,0,0,0,0,0,2.0
+M,Beuke,Donald,49,"Broomfield, CO, US",4.0,1,0,0,0,0,4.0
+M,Bross,Ted,35,"Golden, CO, US",4.0,1,0,0,0,0,4.0
+M,Lunger,Matthew,36,"Lakewood, CO, US",2.8,0,1,0,0,0.5,2.8
+M,Suddendorf,David,41,"Westminster, CO, US",2.0,0,0,0,0,0,2.0
+M,Fox,Brian,52,"Logan, UT, US",2.0,0,0,0,0,0,2.0
+F,Teruel,Sarah,35,"Midland, TX, US",4.0,1,0,0,0,0,4.0
+F,Coggin,Emily,37,"Vail, CO, US",2.0,0,0,0,0,0,2.0
+M,Vivian,Daniel,34,"Frisco, CO, US",10.8,2,0,0,3,0,10.8
+M,Williams,Nathan,35,"Sandy, UT, US",2.0,0,0,0,0,0,2.0
+M,Davis,Loren,32,"Bozeman, MT, US",4.0,1,0,0,0,0,4.0
+M,Oberwortmann,Douglas,50,"Ribera, NM, US",2.0,0,0,0,0,0,2.0
+M,Grant,Josh,50,"Morgan Hill, CA, US",11.3,1,3,0,0,1.5,11.3
+M,Sobie,Christopher,37,"Pine, CO, US",5.3,1,0,0.875,0,0,5.3
+M,Bruno,John,29,"Basalt, CO, US",2.8,0,1,0,0,0.5,2.8
+F,Sullivan,Briana,33,"Salt Lake City, UT, US",2.8,0,1,0,0,0.5,2.8
+M,Tonsits,Peter,62,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Hill,Zach,34,"Santa Fe, NM, US",8.0,2,0,0,0,0,8.0
+F,Wighardt,Madeline,23,"Ancaster, ON, CA",2.0,0,0,0,0,0,2.0
+M,Brown,Timothy,34,"Littleton, CO, US",2.0,0,0,0,0,0,2.0
+M,Orillac,Jose,52,"Panama, , PA",2.0,0,0,0,0,0,2.0
+M,Sullivan,Michael,39,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Ugarte Ii,Eduardo,56,"Santa Fe, NM, US",2.0,0,0,0,0,0,2.0
+M,Miller,Marty,57,"Sandy, UT, US",4.0,1,0,0,0,0,4.0
+M,Kalbus,Kyle,39,"Chattanooga, TN, US",5.7,1,1,0,0,0.5,5.7
+M,Macnulty,Charles,51,"Auburn, CA, US",6.8,0,0,10,0,0,6.8
+F,Umstot,Rebecca,42,"Collbran, CO, US",2.0,0,0,0,0,0,2.0
+M,Hostetler,Ryan,21,"Clarksville, AR, US",4.0,1,0,0,0,0,4.0
+M,Maccallum,Seitheach,44,"Canon City, CO, US",2.0,0,0,0,0,0,2.0
+M,Sisengrath,Greg,49,"Allen, TX, US",2.0,0,0,0,0,0,2.0
+M,Klein,Rusty,40,"Traverse City, MI, US",2.0,0,0,0,0,0,2.0
+F,Gdela,Katarzyna,45,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Miller,Joe,52,"Colorado Springs, CO, US",10.8,2,0,0,3,0,10.8
+M,Wolff,Anthony,38,"Lake City, MI, US",2.0,0,0,0,0,0,2.0
+F,Taylor,Jennifer,45,"Greensboro, NC, US",2.0,0,0,0,0,0,2.0
+M,Cross,Kevin,35,"Tucson, AZ, US",2.0,0,0,0,0,0,2.0
+F,Mcclain,Caeley,23,"Durango, CO, US",2.0,0,0,0,0,0,2.0
+M,Watanabe,Takahiro,51,"Suginami, 13, JP",2.0,0,0,0,0,0,2.0
+M,Anderson,Will,32,"Midland, TX, US",17.8,3,0,0,1.5,0,17.8
+M,Drewes,Conor,26,"Incline Village, NV, US",2.0,0,0,0,0,0,2.0
+F,Wood,Margaret,34,"Los Alamos, NM, US",2.0,0,0,0,0,0,2.0
+M,Misenhimer,Logan,34,"Arvada, CO, US",8.0,2,0,0,0,0,8.0
+M,Gillaspie,Brian,47,"Topeka, KS, US",2.0,0,0,0,0,0,2.0
+F,Sanborn,Jody,42,"Banner, WY, US",4.0,1,0,0,0,0,4.0
+M,Stevens,Richard,45,"Spring Lake, MI, US",2.0,0,0,0,0,0,2.0
+M,Hern,Jeffrey,36,"Gunnison, CO, US",8.0,2,0,0,0,0,8.0
+M,Nadeau,Joey,35,"Teton Village, WY, US",4.0,1,0,0,0,0,4.0
+M,Lewis,Joseph,37,"Carbondale, CO, US",2.0,0,0,0,0,0,2.0
+M,Brown,Taylor,33,"Dumont, CO, US",4.5,0,0,2.5,0,0,4.5
+F,Thouin,Madeline,28,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Teisher,Jon,49,"Old Colorado City, CO, US",4.0,1,0,0,0,0,4.0
+M,Thouin,John,27,"Sykesville, MD, US",2.0,0,0,0,0,0,2.0
+M,Cartwright,Jack,34,"San Francisco, CA, US",4.0,1,0,0,0,0,4.0
+M,Martin,Matthew,40,"Erie, CO, US",7.9,1,0,4,2,0,7.9
+M,Halliburton,Kevin,53,"Allen, TX, US",4.0,1,0,0,0,0,4.0
+F,Gablehouse,Kristin,47,"Broomfield, CO, US",4.9,0,0,1.25,2,0,4.9
+F,Bilow,Melissa,36,"Evergreen, CO, US",2.0,0,0,0,0,0,2.0
+M,Sorensen,Christian,48,"Park City, UT, US",2.0,0,0,0,0,0,2.0
+M,Friedly,Seth,45,"Longmont, CO, US",4.0,1,0,0,0,0,4.0
+M,Shibley,Edward,46,"West Springfield, MA, US",2.0,0,0,0,0,0,2.0
+F,Cotton,Taylor,24,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+F,Walker,Jennifer,43,"Evergreen, CO, US",5.6,0,0,2.5,2.5,0,5.6
+M,Hohman,Rick,41,"Hudson, OH, US",2.0,0,0,0,0,0,2.0
+M,Lloyd,Chris,62,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+M,Johns,Brinton,51,"Golden, CO, US",8.0,2,0,0,0,0,8.0
+F,Mcclay,Samantha,35,"Salida, CO, US",2.0,0,0,0,0,0,2.0
+F,Crane,Corrie,47,"Avon, CO, US",4.0,1,0,0,0,0,4.0
+F,Krivitski,Margarita,35,"San Francisco, CA, US",2.8,0,0,0.46875,0,0,2.8
+M,Maher,Jason,42,"Buena Vista, CO, US",7.3,0,0,0,13,0,7.3
+M,Casias,Juan,43,"Los Alamos, NM, US",2.0,0,0,0,0,0,2.0
+M,Winters,Jordan,29,"Englewood, CO, US",2.0,0,0,0,0,0,2.0
+M,Kropf,Terrell,33,"Clarksville, AR, US",4.0,1,0,0,0,0,4.0
+M,Valentine,Paul,34,"Colorado Springs, CO, US",4.0,0,2,0,0,1,4.0
+M,Rutowski,Josh,29,"Chicago, IL, US",2.0,0,0,0,0,0,2.0
+F,Liao,Anna,44,"Boulder, CO, US",2.0,0,0,0,0,0,2.0
+M,Brougher,Jackson,31,"Belmont, CA, US",2.0,0,0,0,0,0,2.0
+M,Tryon,Liam,35,"Toronto, ON, CA",2.0,0,0,0,0,0,2.0
+M,Miller,Nic,44,"Boulder, CO, US",4.0,1,0,0,0,0,4.0
+M,Shoemaker,Max,34,"Dunwoody, GA, US",2.0,0,0,0,0,0,2.0
+M,Klebs,Eric,27,"Colorado Springs, CO, US",2.0,0,0,0,0,0,2.0
+M,Lawson,Gregg,49,"Dade City, FL, US",8.8,1,0,0,10,0,8.8
+M,Mathews,Cameron,43,"Littleton, CO, US",2.0,0,0,0,0,0,2.0
+M,Roggenkamp,Lee,36,"Denver, CO, US",2.0,0,0,0,0,0,2.0
+F,Wiss,Sommer,30,"Superior, CO, US",2.0,0,0,0,0,0,2.0
+M,Banks,Trevor,53,"Arvada, CO, US",16.0,3,0,0,0,0,16.0
