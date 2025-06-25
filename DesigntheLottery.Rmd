@@ -1,0 +1,289 @@
+---
+title: "Design Future Lotteries"
+author: "Garret Christensen"
+date: "January 13, 2022"
+output: html_document
+runtime: shiny
+---
+
+## Lottery Design Choices
+There's lots of different ways to weight applicants in the lottery. Here we let you pick the weighting formula and show how that would change results using the applicant data for the 2022 race. 
+
+The general goals of the lottery are as follows:
+
+* We want equal numbers of men and women
+* We'd like to get a mix of new and veteran runners, without guaranteeing entry for either
+* Previous unsuccessful applications should be the major determinant of selection
+* We value volunteering and trail work
+* We'd like new entrants to have a decent chance to run within a couple-few years
+
+So here are the activities for which we will award points:
+
+* Volunteer shifts at High Lonesome or other Freestone Endurance events
+* Extra volunteer trailwork *beyond* the eight hours required
+* Previous applications for the race
+* Previous finishes of the race
+
+
+### Choose Your Model
+
+
+The current model is: Tickets=2^(n+k+1)+2ln(v+t+1) where n, k, v, and t are defined as follows:
+
+* Previous_Applications = n
+* Weighted_Finishes = k 
+* Volunteer_Points = v	
+* Extra_Trailwork = t 
+
+```{r prep, echo=FALSE, results=FALSE, warning=FALSE, message=FALSE}
+library(dplyr)
+library(tibble)
+library(readxl)
+library(markdown)
+
+
+#####################################################
+#SET EVERYTHING UP BEFORE DOING THE SHINY PART
+#######################################################
+
+#I COULD MAKE THIS AN INTERACTIVE PART TOO LATER
+
+temp<-read.csv("./2022HL100_lotteryentrants_final.csv", stringsAsFactors = FALSE) #LOAD THE DATA
+df<-as_tibble(temp)
+
+
+df$fullname<-paste(df$First_Name, df$Last_Name, sep=" ", collapse = NULL)
+head(df)
+
+#df$USA<-ifelse(df$Country=="USA",1,0)
+
+#NUMBER OF MEN AND WOMEN APPLICANTS
+n_men_app=nrow(men<-df[which(df$Gender=="M"),])
+n_women_app=nrow(women<-df[which(df$Gender=="F"),])
+
+```
+
+
+
+
+
+```{r runlottery, echo=FALSE, warning=FALSE}
+shinyApp(
+  
+
+#######################################################################
+# WHAT THE UI LOOKS LIKE
+#######################################################################
+ui<-fluidPage(
+  
+   htmltools::includeMarkdown("./markdown/implementingtheodds.md"),
+  # Copy the line below to make a number input box into the UI.
+  fluidRow(
+  column(6, sliderInput("exp", label = h5("Exponent Base"), min=2, max=5, value = 2)),
+  #column(6, sliderInput("relative", label = h5("Relative Worth"), min=0, max=1, value = 0.5)),
+  #column(6, sliderInput("peak", label = h5("Optimal Finishes"), min=1, max=4, value = 3)),
+  column(6, sliderInput("mult", label = h5("Multiplier Base"), min=1, max=10, value = 2)),
+  column(6, sliderInput("Nm", label = h5("Number of Men"), min=50, max=301, value = 62)),
+  column(6, sliderInput("Nw", label = h5("Number of Women"), min=50, max=108, value =66))
+  ),
+  
+  htmltools::includeMarkdown("./markdown/howmanytickets.md"),
+  fluidRow(
+  column(6, sliderInput("apps", label = h5("Previous Applications"), min=0, max=6, value = 0)),
+  column(6, sliderInput("finishes", label = h5("Previous Finishes"), min=0, max=4, value = 0)),
+  column(6, sliderInput("volunteer", label = h5("Volunteer Shifts"), min=0, max=30, value = 0)),
+  column(6, sliderInput("trailwork", label = h5("Extra Trailwork"), min=0, max=10, value = 0))
+  ),
+  
+  fluidRow("Your tickets in the lottery:", textOutput("tickets")),
+  
+ fluidRow("These are the odds. Women left, men right:"),
+ fluidRow( 
+          column(6, tableOutput("wtable")),
+          column(6, tableOutput("mtable"))
+          )
+ ),
+
+#############################################################################
+server<- function(input, output) {
+
+#THIS CALCULATES THE TICKETS FOR A SPECIFIC TYPE OF PERSON
+#USING THE WEIGHTING AND VALUE PROVIDED BYT THE USER
+  
+    output$tickets <- renderText({
+#Do THE VARIABLE TRANSFORMATIONS FOR PEOPLE's ENTERED VALUES
+k_sim <- ifelse(input$finishes==0 , 0,
+               ifelse(input$finishes==1,  0.5,
+                      ifelse(input$finishes==2, 1, 
+                             ifelse(input$finishes==3, 1.5,
+                                    ifelse(input$finishes>=4, 0.5, 0)))))
+
+#Shifts max out at 30 (10 each race)
+v_sim<-pmin(input$volunteer, 30)
+t_sim<-pmin(input$trailwork, 10)
+
+#Tickets=2^(n+k+1)+2ln(v+t+1) where n, k, v, and t are defined as follows:
+input$exp^(k_sim+input$apps+1) + input$mult*log(v_sim+t_sim+1)
+})
+  
+output$wtable <- renderTable({
+
+#Don't know if this is required, but I have all the prep repeated in both mens and womens
+######################################################################
+#DETERMINE TICKETS FROM THE DATA
+df$Applications<-df$Previous_Applications
+
+#k is defined according to the following rule:
+# k=0 if finishes==0
+#k=0.5 if finishes==1
+#k=1 if finishes==2
+#k=1.5 if finishes==3
+#k=1 if finishes>=4
+df$k <- ifelse(df$Previous_Finishes==0 , 0,
+               ifelse(df$Previous_Finishes==1,  0.5,
+                      ifelse(df$Previous_Finishes==2, 1, 
+                             ifelse(df$Previous_Finishes==3, 1.5,
+                                    ifelse(df$Previous_Finishes>=4, 0.5, 0)))))
+
+
+#Shifts max out at 30 (10 each race)
+df$v<-pmin(df$Volunteer_Shifts, 30)
+df$t<-pmin(df$Extra_Trailwork, 10)
+
+#Tickets=2^(n+k+1)+2ln(v+t+1) where n, k, v, and t are defined as follows:
+df$tickets <-input$exp^(df$k+df$Applications+1) + input$mult*log(df$v+df$t+1)
+
+##########################################################
+
+
+
+#SPLIT THE DATA INTO MENS AND WOMENS
+men<-df[which(df$Gender=="M"),]
+women<-df[which(df$Gender=="F"),]
+
+
+
+#PRINT THE ODDS
+# WOMEN ODDS
+#the number of women with a given number of tickets
+applicants <- pull((women %>% count(tickets))[,2], n)
+
+#those ticket numbers
+tickets_per_applicant <- sort(women$tickets[!duplicated(women$tickets)])
+
+#the total tickets from that 'category'
+original_tickets <- applicants * tickets_per_applicant
+ticket_counts <- original_tickets
+
+
+#FOR 2022 JUST SET HOW MANY TO PICK
+n_women_pick <-input$Nw
+
+for (i in 1:n_women_pick) {
+  #odds of picking that category
+  prob_of_selecting_category <- ticket_counts / sum(ticket_counts)
+  #expected reduction in tickets by picking a person from that category
+  exp_ticket_reduction <- prob_of_selecting_category * tickets_per_applicant
+  #reduce the tickets remaining
+  ticket_counts <- ticket_counts - exp_ticket_reduction
+}
+#tickets pulled from a category
+tickets_taken <- original_tickets - ticket_counts
+#odds from that category
+odds_of_selection <- tickets_taken / original_tickets
+#people from that category
+num_people_taken <- odds_of_selection * applicants
+
+#rename
+W_tix<-tickets_per_applicant
+odds<-odds_of_selection
+N_taken<-num_people_taken
+#combine
+w_odds <- cbind(W_tix, odds, applicants, N_taken)
+women_odds<-data.frame(w_odds)
+return(women_odds)
+})
+############################
+
+
+#MENS
+output$mtable <- renderTable({
+######################################################################
+#DETERMINE TICKETS FROM THE DATA
+
+df$Applications<-df$Previous_Applications
+
+#k is defined according to the following rule:
+# k=0 if finishes==0
+#k=0.5 if finishes==1
+#k=1 if finishes==2
+#k=1.5 if finishes==3
+#k=1 if finishes>=4
+df$k <- ifelse(df$Previous_Finishes==0 , 0,
+               ifelse(df$Previous_Finishes==1,  0.5,
+                      ifelse(df$Previous_Finishes==2, 1, 
+                             ifelse(df$Previous_Finishes==3, 1.5,
+                                    ifelse(df$Previous_Finishes>=4, 0.5, 0)))))
+
+
+#Shifts max out at 30 (10 each race)
+df$v<-pmin(df$Volunteer_Shifts, 30)
+df$t<-pmin(df$Extra_Trailwork, 10)
+
+#Tickets=2^(n+k+1)+2ln(v+t+1) where n, k, v, and t are defined as follows:
+df$tickets <-input$exp^(df$k+df$Applications+1) + input$mult*log(df$v+df$t+1)
+
+##########################################################
+
+
+
+#SPLIT THE DATA INTO MENS AND WOMENS
+men<-df[which(df$Gender=="M"),]
+women<-df[which(df$Gender=="F"),]
+
+
+# MEN ODDS
+#the number of men with a given number of tickets
+applicants <- pull((men %>% count(tickets))[,2], n)
+
+#those ticket numbers
+tickets_per_applicant <- sort(men$tickets[!duplicated(men$tickets)])
+
+#the total tickets from that 'category'
+original_tickets <- applicants * tickets_per_applicant
+ticket_counts <- original_tickets
+
+#FOR 2022 JUST SET HOW MANY TO PICK
+n_men_pick <- input$Nm
+
+for (i in 1:n_men_pick) {
+  #odds of picking that category
+  prob_of_selecting_category <- ticket_counts / sum(ticket_counts)
+  #expected reduction in tickets by picking a person from that category
+  exp_ticket_reduction <- prob_of_selecting_category * tickets_per_applicant
+  #reduce the tickets remaining
+  ticket_counts <- ticket_counts - exp_ticket_reduction
+}
+#tickets pulled from a category
+tickets_taken <- original_tickets - ticket_counts
+#odds from that category
+odds_of_selection <- tickets_taken / original_tickets
+#people from that category
+num_people_taken <- odds_of_selection * applicants
+
+#rename
+M_tix<-tickets_per_applicant
+odds<-odds_of_selection
+N_taken<-num_people_taken
+m_odds <- cbind(M_tix, odds, applicants, N_taken)
+men_odds<-data.frame(m_odds)
+return(men_odds)
+})
+
+
+},
+ options = list(height = 900)
+)
+
+```
+
