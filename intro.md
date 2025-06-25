@@ -1,0 +1,24 @@
+There are many ways to weight applicants in the lottery. Here you can pick a weighting formula and see how it would change results using the 2025 data.
+
+**General goals of the lottery:**
+- Equal numbers of men and women
+- Mix of new and veteran runners, no guarantees for either
+- Previous unsuccessful applications should be a major determinant of selection
+- We value volunteering and trail work
+- New entrants should have a reasonable chance to run within a couple years
+
+**We award points for:**
+- Volunteer shifts at High Lonesome or Freestone Endurance events
+- Extra volunteer trailwork *beyond* the required hours
+- Previous applications for the race
+- Previous finishes of the race
+
+**The current model is:**
+```
+Tickets = exp^(n + k + 1) + mult * ln(v + t + 1)
+```
+where:
+- n = Previous Applications
+- k = Finish Multiplier
+- v = Volunteer Points
+- t = Extra Trailwork Points
