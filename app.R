@@ -3,18 +3,78 @@ library(bslib)
 library(dplyr)
 library(tibble)
 library(shinyjs)
+library(DT)
 
 # Load data
 temp <- read.csv("./2025HLdata.csv", stringsAsFactors = FALSE)
 df <- as_tibble(temp)
 df$fullname <- paste(df$First_Name, df$Last_Name, sep = " ", collapse = NULL)
 
-# Theme
-my_theme <- bs_theme(bootswatch = "minty")
+# Prepare gender column as in your working code
+df$Gender <- ifelse(df$Lottery.Pool == "F", "Female", "Male")
+
+# Calculate k, v, t, and tickets as in the working code
+df$k <- ifelse(df$Previous_Finishes==0 , 0,
+               ifelse(df$Previous_Finishes==1,  0.5,
+                      ifelse(df$Previous_Finishes==2, 1, 
+                             ifelse(df$Previous_Finishes==3, 1.5,
+                                    ifelse(df$Previous_Finishes>=4, 0.5, 0)))))
+df$v <- pmin(df$Volunteer_Shifts, 30)
+df$t <- pmin(df$Extra_Trailwork, 10)
+df$tickets <- 2^(df$k + df$Previous_Applications + 1) + 2*log(df$v + df$t + 1)
+
+# Gender splits
+women <- df[df$Gender == "Female", ]
+men <- df[df$Gender == "Male", ]
+
+n_women_pick <- 103
+n_men_pick <- 95
+
+# ---- WOMEN ODDS ----
+w_applicants <- pull((women %>% count(tickets))[,2], n)
+w_tickets_per_applicant <- sort(women$tickets[!duplicated(women$tickets)])
+w_original_tickets <- w_applicants * w_tickets_per_applicant
+w_ticket_counts <- w_original_tickets
+
+for (i in 1:n_women_pick) {
+  w_prob_of_selecting_category <- w_ticket_counts / sum(w_ticket_counts)
+  w_exp_ticket_reduction <- w_prob_of_selecting_category * w_tickets_per_applicant
+  w_ticket_counts <- w_ticket_counts - w_exp_ticket_reduction
+}
+w_tickets_taken <- w_original_tickets - w_ticket_counts
+w_odds_of_selection <- w_tickets_taken / w_original_tickets
+w_num_people_taken <- w_odds_of_selection * w_applicants
+w_odds <- data.frame(
+  tickets_per_applicant = w_tickets_per_applicant,
+  odds_of_selection = w_odds_of_selection,
+  applicants = w_applicants,
+  num_people_taken = w_num_people_taken
+)
+
+# ---- MEN ODDS ----
+m_applicants <- pull((men %>% count(tickets))[,2], n)
+m_tickets_per_applicant <- sort(men$tickets[!duplicated(men$tickets)])
+m_original_tickets <- m_applicants * m_tickets_per_applicant
+m_ticket_counts <- m_original_tickets
+
+for (i in 1:n_men_pick) {
+  m_prob_of_selecting_category <- m_ticket_counts / sum(m_ticket_counts)
+  m_exp_ticket_reduction <- m_prob_of_selecting_category * m_tickets_per_applicant
+  m_ticket_counts <- m_ticket_counts - m_exp_ticket_reduction
+}
+m_tickets_taken <- m_original_tickets - m_ticket_counts
+m_odds_of_selection <- m_tickets_taken / m_original_tickets
+m_num_people_taken <- m_odds_of_selection * m_applicants
+m_odds <- data.frame(
+  tickets_per_applicant = m_tickets_per_applicant,
+  odds_of_selection = m_odds_of_selection,
+  applicants = m_applicants,
+  num_people_taken = m_num_people_taken
+)
 
 ui <- fluidPage(
   useShinyjs(),
-  theme = my_theme,
+  theme = bs_theme(bootswatch = "minty"),
   tags$head(
     tags$style(HTML("
       .intro-logo {
@@ -39,138 +99,34 @@ ui <- fluidPage(
       }
     "))
   ),
-  titlePanel("Design Future Lotteries"),
-  sidebarLayout(
-    sidebarPanel(
-      h4("Lottery Parameters"),
-      sliderInput("exp", label = "Exponent Base", min = 2, max = 5, value = 2),
-      sliderInput("mult", label = "Multiplier Base", min = 1, max = 10, value = 2),
-      numericInput("Nm", label = "Number of Men", min = 50, max = 150, value = 95),
-      numericInput("Nw", label = "Number of Women", min = 50, max = 150, value = 103),
-      hr(),
-      h4("Applicant Profile (for ticket calculation)"),
-      sliderInput("apps", label = "Previous Applications", min = 0, max = 6, value = 0),
-      sliderInput("finishes", label = "Previous Finishes", min = 0, max = 4, value = 0),
-      sliderInput("volunteer", label = "Volunteer Points", min = 0, max = 30, value = 0),
-      sliderInput("trailwork", label = "Extra Trailwork Points", min = 0, max = 10, value = 0)
-    ),
-    mainPanel(
-      tags$div(
-        style = "margin-bottom: 20px;",
-        actionButton("toggleIntro", "Show/Hide Introduction", icon = icon("info-circle")),
-        div(
-          id = "introPanel",
-          style = "margin-top: 10px;",
-          wellPanel(
-            tags$div(
-              class = "intro-logo",
-              tags$img(src = "image1", alt = "Freestone Logo"),
-              tags$div(class = "intro-title", "Lottery Design Choices")
-            ),
-            HTML(
-              "There are lots of different ways to weight applicants in the lottery. Here we let you pick the weighting formula and show how that would change results using the applicant data for the 2025 race.<br><br>
-              <b>The general goals of the lottery are as follows:</b>
-              <ul>
-                <li>We want equal numbers of men and women</li>
-                <li>We'd like to get a mix of new and veteran runners, without guaranteeing entry for either</li>
-                <li>Previous unsuccessful applications should be the major determinant of selection</li>
-                <li>We value volunteering and trail work</li>
-                <li>We'd like new entrants to have a decent chance to run within a couple-few years</li>
-              </ul>
-              <b>So here are the activities for which we will award points:</b>
-              <ul>
-                <li>Volunteer shifts at High Lonesome or other Freestone Endurance events</li>
-                <li>Extra volunteer trailwork <i>beyond</i> the eight hours required</li>
-                <li>Previous applications for the race</li>
-                <li>Previous finishes of the race</li>
-              </ul>
-              <b>The current model is:</b> <code>Tickets = exp^(n + k + 1) + mult * ln(v + t + 1)</code> where:
-              <ul>
-                <li>n = Previous Applications</li>
-                <li>k = Finish Multiplier</li>
-                <li>v = Volunteer Points</li>
-                <li>t = Extra Trailwork Points</li>
-              </ul>"
-            )
-          )
-        )
-      ),
-      fluidRow(
-        column(12, h4("Your tickets in the lottery:"), verbatimTextOutput("tickets"))
-      ),
-      fluidRow(
-        column(12, h4("These are the odds. Women left, men right:"))
-      ),
-      fluidRow(
-        column(6, tableOutput("wtable")),
-        column(6, tableOutput("mtable"))
-      )
-    )
+  # This is how you display the image:
+  tags$div(
+    class = "intro-logo",
+    tags$img(src = "logo.png", alt = "Freestone Logo"), # Place logo.png in www/
+    tags$div(class = "intro-title", "Lottery Design Choices")
+  ),
+  bsCollapse(id = "collapse", multiple=TRUE,
+             bsCollapsePanel("What are my odds?",
+                             "These are the odds for women with the given number of tickets:",
+                             DT::dataTableOutput("oddsW"),
+                             "These are the odds for men with the given number of tickets:",
+                             DT::dataTableOutput("oddsM"),
+                             style = "info"
+             )
+             # Add other panels as needed...
   )
 )
 
 server <- function(input, output, session) {
-  observeEvent(input$toggleIntro, {
-    toggle(id = "introPanel")
+  output$oddsW <- DT::renderDataTable({
+    datatable(w_odds) %>%
+      formatPercentage('odds_of_selection', digits = 2) %>%
+      formatRound(c('tickets_per_applicant', 'num_people_taken'), digits = 2)
   })
-  
-  # Calculate tickets for a specific profile
-  output$tickets <- renderText({
-    k_sim <- input$finishes
-    v_sim <- pmin(input$volunteer, 30)
-    t_sim <- pmin(input$trailwork, 10)
-    # Tickets = exp^(n + k + 1) + mult * ln(v + t + 1)
-    round(input$exp^(k_sim + input$apps + 1) + input$mult * log(v_sim + t_sim + 1), 2)
-  })
-  
-  # Helper function to compute and format odds table
-  lottery_odds_table <- function(group, n_pick) {
-    applicants <- as.numeric(pull((group %>% count(Tickets))[,2], n))
-    tickets_per_applicant <- sort(unique(group$Tickets))
-    original_tickets <- applicants * tickets_per_applicant
-    ticket_counts <- original_tickets
-    for (i in 1:n_pick) {
-      prob_of_selecting_category <- ticket_counts / sum(ticket_counts)
-      exp_ticket_reduction <- prob_of_selecting_category * tickets_per_applicant
-      ticket_counts <- ticket_counts - exp_ticket_reduction
-    }
-    tickets_taken <- original_tickets - ticket_counts
-    odds_of_selection <- tickets_taken / original_tickets
-    num_people_taken <- odds_of_selection * applicants
-    
-    # Build a nice output data frame
-    data.frame(
-      "Tickets per Person" = tickets_per_applicant,
-      "Selection Probability (%)" = round(odds_of_selection * 100, 2),
-      "# Applicants" = applicants,
-      "Expected Selected" = round(num_people_taken, 2)
-    )
-  }
-  
-  # Women's odds table
-  output$wtable <- renderTable({
-    dff <- df
-    dff$Applications <- dff$Previous_Applications
-    dff$k <- dff$`Finish Multiplier`
-    dff$v <- pmin(dff$Volunteer_Points, 30)
-    dff$t <- pmin(dff$Extra_Trailwork_Points, 10)
-    dff$Tickets <- input$exp^(dff$k + dff$Applications + 1) + input$mult * log(dff$v + dff$t + 1)
-    women <- dff[dff$Gender == "F", ]
-    if (nrow(women) == 0) return(data.frame())
-    lottery_odds_table(women, input$Nw)
-  })
-  
-  # Men's odds table
-  output$mtable <- renderTable({
-    dff <- df
-    dff$Applications <- dff$Previous_Applications
-    dff$k <- dff$`Finish Multiplier`
-    dff$v <- pmin(dff$Volunteer_Points, 30)
-    dff$t <- pmin(dff$Extra_Trailwork_Points, 10)
-    dff$Tickets <- input$exp^(dff$k + dff$Applications + 1) + input$mult * log(dff$v + dff$t + 1)
-    men <- dff[dff$Gender == "M", ]
-    if (nrow(men) == 0) return(data.frame())
-    lottery_odds_table(men, input$Nm)
+  output$oddsM <- DT::renderDataTable({
+    datatable(m_odds) %>%
+      formatPercentage('odds_of_selection', digits = 2) %>%
+      formatRound(c('tickets_per_applicant', 'num_people_taken'), digits = 2)
   })
 }
 
