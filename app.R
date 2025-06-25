@@ -6,14 +6,12 @@ library(DT)
 library(shinyjs)
 library(markdown)
 library(ggplot2)
-library(gridExtra)
 
 # Load your data
 temp <- read.csv("./2025HLdata.csv", stringsAsFactors = FALSE)
 df <- as_tibble(temp)
 df$fullname <- paste(df$First_Name, df$Last_Name, sep = " ", collapse = NULL)
 
-# Gender logic
 if (!"Gender" %in% names(df)) {
   if ("Lottery.Pool" %in% names(df)) {
     df$Gender <- ifelse(df$Lottery.Pool == "F", "Female", "Male")
@@ -64,6 +62,15 @@ ui <- fluidPage(
       }
       .odds-col {
         flex: 1 1 0;
+      }
+      .dt-compact-custom {
+        font-size: 12px !important;
+      }
+      .dataTables_wrapper .dataTables_length, 
+      .dataTables_wrapper .dataTables_filter, 
+      .dataTables_wrapper .dataTables_info, 
+      .dataTables_wrapper .dataTables_paginate {
+        font-size: 12px !important;
       }
     "))
   ),
@@ -174,18 +181,18 @@ server <- function(input, output, session) {
     odds_of_selection <- tickets_taken / original_tickets
     num_people_taken <- odds_of_selection * applicants
     data.frame(
-      tickets_per_applicant = tickets_per_applicant,
-      odds_of_selection = odds_of_selection,
-      applicants = applicants,
-      num_people_taken = num_people_taken
+      Tickets = tickets_per_applicant,
+      Odds = odds_of_selection,
+      Applicants = applicants,
+      Expected.Picked = num_people_taken
     )
   }
   
   # By Previous Applications
   picks_by_prevapps <- function(group, n_pick) {
     odds_tbl <- calc_odds(group, n_pick)
-    group <- left_join(group, odds_tbl, by = c("tickets" = "tickets_per_applicant"))
-    group$expected_picked <- group$odds_of_selection
+    group <- left_join(group, odds_tbl, by = c("tickets" = "Tickets"))
+    group$expected_picked <- group$Expected.Picked
     group %>%
       group_by(Previous_Applications) %>%
       summarise(expected_num_picked = sum(expected_picked, na.rm = TRUE)) %>%
@@ -194,8 +201,8 @@ server <- function(input, output, session) {
   # By Previous Finishes
   picks_by_prevfinishes <- function(group, n_pick) {
     odds_tbl <- calc_odds(group, n_pick)
-    group <- left_join(group, odds_tbl, by = c("tickets" = "tickets_per_applicant"))
-    group$expected_picked <- group$odds_of_selection
+    group <- left_join(group, odds_tbl, by = c("tickets" = "Tickets"))
+    group$expected_picked <- group$Expected.Picked
     group %>%
       group_by(Previous_Finishes) %>%
       summarise(expected_num_picked = sum(expected_picked, na.rm = TRUE)) %>%
@@ -255,19 +262,46 @@ server <- function(input, output, session) {
     women <- dff[dff$Gender == "Female", ]
     if (nrow(women) == 0) return(data.frame())
     odds <- calc_odds(women, input$Nw)
-    datatable(odds) %>%
-      formatPercentage('odds_of_selection', digits = 2) %>%
-      formatRound(c('tickets_per_applicant', 'num_people_taken'), digits = 2)
+    # Create display dataframe with pretty names
+    odds_display <- odds %>%
+      mutate(`Odds (%)` = round(Odds * 100, 2)) %>%
+      select(
+        `Tickets` = Tickets,
+        `Odds (%)`,
+        `Applicants` = Applicants,
+        `Expected Picked` = Expected.Picked
+      )
+    datatable(odds_display, options = list(
+      dom = 'tip',        # show table, info, and pagination (no search or length change)
+      pageLength = 10,    # show 10 rows/page by default
+      lengthMenu = c(5, 10, 25, 50, 100), # allow the user to pick page size
+      className = 'dt-compact-custom',
+      columnDefs = list(list(targets = "_all", className = "dt-center"))
+    ), rownames = FALSE, class = "compact dt-compact-custom") %>%
+      formatRound(c('Tickets', 'Applicants', 'Expected Picked'), digits = 2)
   })
-  tiny change
+  
   output$oddsM <- DT::renderDataTable({
     dff <- population_tickets()
     men <- dff[dff$Gender == "Male", ]
     if (nrow(men) == 0) return(data.frame())
     odds <- calc_odds(men, input$Nm)
-    datatable(odds) %>%
-      formatPercentage('odds_of_selection', digits = 2) %>%
-      formatRound(c('tickets_per_applicant', 'num_people_taken'), digits = 2)
+    odds_display <- odds %>%
+      mutate(`Odds (%)` = round(Odds * 100, 2)) %>%
+      select(
+        `Tickets` = Tickets,
+        `Odds (%)`,
+        `Applicants` = Applicants,
+        `Expected Picked` = Expected.Picked
+      )
+    datatable(odds_display, options = list(
+      dom = 'tip',
+      pageLength = 10,
+      lengthMenu = c(5, 10, 25, 50, 100),
+      className = 'dt-compact-custom',
+      columnDefs = list(list(targets = "_all", className = "dt-center"))
+    ), rownames = FALSE, class = "compact dt-compact-custom") %>%
+      formatRound(c('Tickets', 'Applicants', 'Expected Picked'), digits = 2)
   })
 }
 
