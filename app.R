@@ -259,7 +259,7 @@ server <- function(input, output, session) {
       formatPercentage('odds_of_selection', digits = 2) %>%
       formatRound(c('tickets_per_applicant', 'num_people_taken'), digits = 2)
   })
-  
+  tiny change
   output$oddsM <- DT::renderDataTable({
     dff <- population_tickets()
     men <- dff[dff$Gender == "Male", ]
