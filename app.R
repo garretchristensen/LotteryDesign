@@ -72,6 +72,17 @@ ui <- fluidPage(
       .dataTables_wrapper .dataTables_paginate {
         font-size: 12px !important;
       }
+      .collapsible-btn {
+        margin-bottom: 10px;
+        background: #e3e3e3;
+        border: 1px solid #bbb;
+        color: #333;
+        font-weight: bold;
+      }
+      .collapsible-title {
+        font-size: 1.15em;
+        font-weight: bold;
+      }
     "))
   ),
   tags$div(
@@ -107,30 +118,45 @@ ui <- fluidPage(
     column(
       width = 8,
       wellPanel(
-        h4("Lottery Odds"),
+        # Odds collapsible
+        actionButton("toggleOdds", "Show/Hide Lottery Odds", class="collapsible-btn"),
         tags$div(
-          class = "odds-cols",
-          div(class = "odds-col",
-              tags$p("Odds for women:"),
-              DT::dataTableOutput("oddsW")
-          ),
-          div(style = "width: 32px;"), # Spacer
-          div(class = "odds-col",
-              tags$p("Odds for men:"),
-              DT::dataTableOutput("oddsM")
+          id = "oddsPanel",
+          tags$div(class = "collapsible-title", "Lottery Odds"),
+          tags$div(
+            class = "odds-cols",
+            div(class = "odds-col",
+                tags$p("Odds for women:"),
+                DT::dataTableOutput("oddsW")
+            ),
+            div(style = "width: 32px;"), # Spacer
+            div(class = "odds-col",
+                tags$p("Odds for men:"),
+                DT::dataTableOutput("oddsM")
+            )
           )
         ),
         br(),
-        h4("Expected Distribution of Picks by Previous Applications"),
-        fluidRow(
-          column(6, plotOutput("histW")),
-          column(6, plotOutput("histM"))
+        # First histogram row collapsible
+        actionButton("toggleHistApps", "Show/Hide Picks by Previous Applications", class="collapsible-btn"),
+        tags$div(
+          id = "histAppsPanel",
+          tags$div(class = "collapsible-title", "Expected Distribution of Picks by Previous Applications"),
+          fluidRow(
+            column(6, plotOutput("histW")),
+            column(6, plotOutput("histM"))
+          )
         ),
         br(),
-        h4("Expected Distribution of Picks by Previous Finishes"),
-        fluidRow(
-          column(6, plotOutput("finHistW")),
-          column(6, plotOutput("finHistM"))
+        # Second histogram row collapsible
+        actionButton("toggleHistFin", "Show/Hide Picks by Previous Finishes", class="collapsible-btn"),
+        tags$div(
+          id = "histFinPanel",
+          tags$div(class = "collapsible-title", "Expected Distribution of Picks by Previous Finishes"),
+          fluidRow(
+            column(6, plotOutput("finHistW")),
+            column(6, plotOutput("finHistM"))
+          )
         )
       )
     )
@@ -138,8 +164,18 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  # Collapsible logic
   observeEvent(input$toggleIntro, {
     toggle(id = "introPanel")
+  })
+  observeEvent(input$toggleOdds, {
+    toggle(id = "oddsPanel")
+  })
+  observeEvent(input$toggleHistApps, {
+    toggle(id = "histAppsPanel")
+  })
+  observeEvent(input$toggleHistFin, {
+    toggle(id = "histFinPanel")
   })
   
   output$userTickets <- renderText({
@@ -192,7 +228,7 @@ server <- function(input, output, session) {
   picks_by_prevapps <- function(group, n_pick) {
     odds_tbl <- calc_odds(group, n_pick)
     group <- left_join(group, odds_tbl, by = c("tickets" = "Tickets"))
-    group$expected_picked <- group$Odds  # Use probability, not Expected.Picked
+    group$expected_picked <- group$Odds # Use odds, not Expected.Picked (per-person probability)
     group %>%
       group_by(Previous_Applications) %>%
       summarise(expected_num_picked = sum(expected_picked, na.rm = TRUE)) %>%
