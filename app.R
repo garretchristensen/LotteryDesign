@@ -192,7 +192,7 @@ server <- function(input, output, session) {
   picks_by_prevapps <- function(group, n_pick) {
     odds_tbl <- calc_odds(group, n_pick)
     group <- left_join(group, odds_tbl, by = c("tickets" = "Tickets"))
-    group$expected_picked <- group$Expected.Picked
+    group$expected_picked <- group$Odds  # Use probability, not Expected.Picked
     group %>%
       group_by(Previous_Applications) %>%
       summarise(expected_num_picked = sum(expected_picked, na.rm = TRUE)) %>%
@@ -202,7 +202,7 @@ server <- function(input, output, session) {
   picks_by_prevfinishes <- function(group, n_pick) {
     odds_tbl <- calc_odds(group, n_pick)
     group <- left_join(group, odds_tbl, by = c("tickets" = "Tickets"))
-    group$expected_picked <- group$Expected.Picked
+    group$expected_picked <- group$Odds
     group %>%
       group_by(Previous_Finishes) %>%
       summarise(expected_num_picked = sum(expected_picked, na.rm = TRUE)) %>%
