@@ -36,53 +36,18 @@ ui <- fluidPage(
   theme = bs_theme(bootswatch = "minty"),
   tags$head(
     tags$style(HTML("
-      .intro-logo {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        margin-bottom: 18px;
-      }
-      .intro-logo img {
-        height: 80px;
-        margin-right: 24px;
-        border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        background: #222A2A;
-        padding: 8px;
-      }
-      .intro-title {
-        font-size: 2.1em;
-        color: #B7822E;
-        font-weight: bold;
-        margin-bottom: 8px;
-      }
-      .odds-cols {
-        display: flex;
-        gap: 32px;
-      }
-      .odds-col {
-        flex: 1 1 0;
-      }
-      .dt-compact-custom {
-        font-size: 12px !important;
-      }
+      .intro-logo { display: flex; align-items: center; justify-content: flex-start; margin-bottom: 18px; }
+      .intro-logo img { height: 80px; margin-right: 24px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background: #222A2A; padding: 8px; }
+      .intro-title { font-size: 2.1em; color: #B7822E; font-weight: bold; margin-bottom: 8px; }
+      .odds-cols { display: flex; gap: 32px; }
+      .odds-col { flex: 1 1 0; }
+      .dt-compact-custom { font-size: 12px !important; }
       .dataTables_wrapper .dataTables_length, 
       .dataTables_wrapper .dataTables_filter, 
       .dataTables_wrapper .dataTables_info, 
-      .dataTables_wrapper .dataTables_paginate {
-        font-size: 12px !important;
-      }
-      .collapsible-btn {
-        margin-bottom: 10px;
-        background: #e3e3e3;
-        border: 1px solid #bbb;
-        color: #333;
-        font-weight: bold;
-      }
-      .collapsible-title {
-        font-size: 1.15em;
-        font-weight: bold;
-      }
+      .dataTables_wrapper .dataTables_paginate { font-size: 12px !important; }
+      .collapsible-btn { margin-bottom: 10px; background: #e3e3e3; border: 1px solid #bbb; color: #333; font-weight: bold; }
+      .collapsible-title { font-size: 1.15em; font-weight: bold; }
     "))
   ),
   tags$div(
@@ -129,11 +94,41 @@ ui <- fluidPage(
                 tags$p("Odds for women:"),
                 DT::dataTableOutput("oddsW")
             ),
-            div(style = "width: 32px;"), # Spacer
+            div(style = "width: 32px;"),
             div(class = "odds-col",
                 tags$p("Odds for men:"),
                 DT::dataTableOutput("oddsM")
             )
+          )
+        ),
+        br(),
+        # Average Odds by Previous Applications collapsible
+        actionButton("toggleAvgOdds", "Show/Hide Average Odds by Previous Applications", class="collapsible-btn"),
+        tags$div(
+          id = "avgOddsPanel",
+          tags$div(class = "collapsible-title", "Average Odds by Previous Applications"),
+          tags$div(
+            class = "odds-cols",
+            div(class = "odds-col",
+                tags$p("Women:"),
+                DT::dataTableOutput("avgOddsW")
+            ),
+            div(style = "width: 32px;"),
+            div(class = "odds-col",
+                tags$p("Men:"),
+                DT::dataTableOutput("avgOddsM")
+            )
+          )
+        ),
+        br(),
+        # Odds distribution collapsible
+        actionButton("toggleOddsDist", "Show/Hide Distribution of Odds", class="collapsible-btn"),
+        tags$div(
+          id = "oddsDistPanel",
+          tags$div(class = "collapsible-title", "Distribution of Odds (Tickets vs Odds)"),
+          fluidRow(
+            column(6, plotOutput("oddsDistW")),
+            column(6, plotOutput("oddsDistM"))
           )
         ),
         br(),
@@ -164,22 +159,12 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
-  # Collapsible logic
-  observeEvent(input$toggleIntro, {
-    toggle(id = "introPanel")
-  })
-  observeEvent(input$toggleOdds, {
-    toggle(id = "oddsPanel")
-  })
-  observeEvent(input$toggleOddsDist, {
-    toggle(id = "oddsDistPanel")
-  })
-  observeEvent(input$toggleHistApps, {
-    toggle(id = "histAppsPanel")
-  })
-  observeEvent(input$toggleHistFin, {
-    toggle(id = "histFinPanel")
-  })
+  observeEvent(input$toggleIntro, { toggle(id = "introPanel") })
+  observeEvent(input$toggleOdds, { toggle(id = "oddsPanel") })
+  observeEvent(input$toggleAvgOdds, { toggle(id = "avgOddsPanel") })
+  observeEvent(input$toggleOddsDist, { toggle(id = "oddsDistPanel") })
+  observeEvent(input$toggleHistApps, { toggle(id = "histAppsPanel") })
+  observeEvent(input$toggleHistFin, { toggle(id = "histFinPanel") })
   
   output$userTickets <- renderText({
     k_sim <- ifelse(input$finishes == 0, 0,
@@ -437,41 +422,5 @@ server <- function(input, output, session) {
       formatRound(c('Tickets', 'Applicants', 'Expected Picked'), digits = 2)
   })
 }
-
-# --- UI: Add Average Odds by Previous Applications section right below odds tables ---
-
-ui$children[[2]]$children[[2]]$children[[1]]$children <- append(
-  ui$children[[2]]$children[[2]]$children[[1]]$children,
-  list(
-    actionButton("toggleAvgOdds", "Show/Hide Average Odds by Previous Applications", class="collapsible-btn"),
-    tags$div(
-      id = "avgOddsPanel",
-      tags$div(class = "collapsible-title", "Average Odds by Previous Applications"),
-      tags$div(
-        class = "odds-cols",
-        div(class = "odds-col",
-            tags$p("Women:"),
-            DT::dataTableOutput("avgOddsW")
-        ),
-        div(style = "width: 32px;"), # Spacer
-        div(class = "odds-col",
-            tags$p("Men:"),
-            DT::dataTableOutput("avgOddsM")
-        )
-      )
-    )
-  ),
-  after = 2 # after oddsPanel
-)
-
-# Collapsible logic for new section
-server <- (function(old_server) {
-  function(input, output, session) {
-    old_server(input, output, session)
-    observeEvent(input$toggleAvgOdds, {
-      toggle(id = "avgOddsPanel")
-    })
-  }
-})(server)
 
 shinyApp(ui = ui, server = server)
