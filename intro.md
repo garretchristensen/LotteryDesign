@@ -1,4 +1,4 @@
-There are many ways to weight applicants in the lottery. Here you can pick a weighting formula and see how it would change results using the 2025 data.
+There are many ways to weight applicants in the lottery. Here you can pick a weighting formula and see how it would change results using the 2025, 2024, or 2023 data.
 
 **General goals of the lottery:**
 - Equal numbers of men and women
