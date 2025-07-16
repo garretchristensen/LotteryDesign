@@ -171,6 +171,9 @@ server <- function(input, output, session) {
   observeEvent(input$toggleOdds, {
     toggle(id = "oddsPanel")
   })
+  observeEvent(input$toggleOddsDist, {
+    toggle(id = "oddsDistPanel")
+  })
   observeEvent(input$toggleHistApps, {
     toggle(id = "histAppsPanel")
   })
@@ -244,6 +247,100 @@ server <- function(input, output, session) {
       summarise(expected_num_picked = sum(expected_picked, na.rm = TRUE)) %>%
       ungroup()
   }
+  
+  # ---- NEW: Average Odds by Previous Applications ----
+  avg_odds_by_prevapps <- function(group, n_pick) {
+    odds_tbl <- calc_odds(group, n_pick)
+    # Join odds onto group (per individual)
+    group <- left_join(group, odds_tbl, by = c("tickets" = "Tickets"))
+    group %>%
+      group_by(Previous_Applications) %>%
+      summarise(
+        n_people = n(),
+        avg_odds = mean(Odds, na.rm = TRUE),
+        min_odds = min(Odds, na.rm = TRUE),
+        max_odds = max(Odds, na.rm = TRUE)
+      ) %>%
+      ungroup()
+  }
+  
+  output$avgOddsW <- DT::renderDataTable({
+    dff <- population_tickets()
+    women <- dff[dff$Gender == "Female", ]
+    if (nrow(women) == 0) return(data.frame())
+    avg_tbl <- avg_odds_by_prevapps(women, input$Nw)
+    avg_tbl <- avg_tbl %>%
+      mutate(
+        `Average Odds (%)` = round(avg_odds * 100, 2),
+        `Min Odds (%)` = round(min_odds * 100, 2),
+        `Max Odds (%)` = round(max_odds * 100, 2)
+      ) %>%
+      select(
+        `Previous Applications` = Previous_Applications,
+        `N People` = n_people,
+        `Average Odds (%)`,
+        `Min Odds (%)`,
+        `Max Odds (%)`
+      )
+    datatable(avg_tbl, options = list(
+      dom = 't',
+      pageLength = 10,
+      className = 'dt-compact-custom'
+    ), rownames = FALSE, class = "compact dt-compact-custom")
+  })
+  
+  output$avgOddsM <- DT::renderDataTable({
+    dff <- population_tickets()
+    men <- dff[dff$Gender == "Male", ]
+    if (nrow(men) == 0) return(data.frame())
+    avg_tbl <- avg_odds_by_prevapps(men, input$Nm)
+    avg_tbl <- avg_tbl %>%
+      mutate(
+        `Average Odds (%)` = round(avg_odds * 100, 2),
+        `Min Odds (%)` = round(min_odds * 100, 2),
+        `Max Odds (%)` = round(max_odds * 100, 2)
+      ) %>%
+      select(
+        `Previous Applications` = Previous_Applications,
+        `N People` = n_people,
+        `Average Odds (%)`,
+        `Min Odds (%)`,
+        `Max Odds (%)`
+      )
+    datatable(avg_tbl, options = list(
+      dom = 't',
+      pageLength = 10,
+      className = 'dt-compact-custom'
+    ), rownames = FALSE, class = "compact dt-compact-custom")
+  })
+  # ---- END NEW ----
+  
+  # Distribution of Odds Plots
+  output$oddsDistW <- renderPlot({
+    dff <- population_tickets()
+    women <- dff[dff$Gender == "Female", ]
+    if (nrow(women) == 0) return(NULL)
+    odds_tbl <- calc_odds(women, input$Nw)
+    ggplot(odds_tbl, aes(x = Tickets, y = Odds)) +
+      geom_point(color = "#B7822E", size = 2) +
+      geom_line(color = "#B7822E") +
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+      labs(x = "Tickets", y = "Odds", title = "Women: Odds by Ticket Value") +
+      theme_minimal(base_size = 14)
+  })
+  
+  output$oddsDistM <- renderPlot({
+    dff <- population_tickets()
+    men <- dff[dff$Gender == "Male", ]
+    if (nrow(men) == 0) return(NULL)
+    odds_tbl <- calc_odds(men, input$Nm)
+    ggplot(odds_tbl, aes(x = Tickets, y = Odds)) +
+      geom_point(color = "#2270AE", size = 2) +
+      geom_line(color = "#2270AE") +
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+      labs(x = "Tickets", y = "Odds", title = "Men: Odds by Ticket Value") +
+      theme_minimal(base_size = 14)
+  })
   
   output$histW <- renderPlot({
     dff <- population_tickets()
@@ -340,5 +437,41 @@ server <- function(input, output, session) {
       formatRound(c('Tickets', 'Applicants', 'Expected Picked'), digits = 2)
   })
 }
+
+# --- UI: Add Average Odds by Previous Applications section right below odds tables ---
+
+ui$children[[2]]$children[[2]]$children[[1]]$children <- append(
+  ui$children[[2]]$children[[2]]$children[[1]]$children,
+  list(
+    actionButton("toggleAvgOdds", "Show/Hide Average Odds by Previous Applications", class="collapsible-btn"),
+    tags$div(
+      id = "avgOddsPanel",
+      tags$div(class = "collapsible-title", "Average Odds by Previous Applications"),
+      tags$div(
+        class = "odds-cols",
+        div(class = "odds-col",
+            tags$p("Women:"),
+            DT::dataTableOutput("avgOddsW")
+        ),
+        div(style = "width: 32px;"), # Spacer
+        div(class = "odds-col",
+            tags$p("Men:"),
+            DT::dataTableOutput("avgOddsM")
+        )
+      )
+    )
+  ),
+  after = 2 # after oddsPanel
+)
+
+# Collapsible logic for new section
+server <- (function(old_server) {
+  function(input, output, session) {
+    old_server(input, output, session)
+    observeEvent(input$toggleAvgOdds, {
+      toggle(id = "avgOddsPanel")
+    })
+  }
+})(server)
 
 shinyApp(ui = ui, server = server)
