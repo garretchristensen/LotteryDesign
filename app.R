@@ -51,6 +51,8 @@ ui <- fluidPage(
       .dataTables_wrapper .dataTables_paginate { font-size: 12px !important; }
       .collapsible-btn { margin-bottom: 10px; background: #e3e3e3; border: 1px solid #bbb; color: #333; font-weight: bold; }
       .collapsible-title { font-size: 1.15em; font-weight: bold; }
+      .formula-box { background: #f4f4f4; padding: 10px 18px; border-radius: 8px; font-size: 1.05em; margin-bottom: 10px; }
+      .formula-highlight { color: #A97B1C; font-weight: bold; }
     "))
   ),
   tags$div(
@@ -69,6 +71,8 @@ ui <- fluidPage(
       width = 4,
       wellPanel(
         h4("Lottery Parameters"),
+        # Dynamic formula display (only the formula)
+        uiOutput("ticketFormula"),
         selectInput("year_select", "Select Data Year:", choices = names(data_choices), selected = "2025"),
         sliderInput("exp", label = "Exponent Base", min = 2, max = 5, value = 2),
         sliderInput("mult", label = "Multiplier", min = 1, max = 10, value = 2),
@@ -169,6 +173,28 @@ server <- function(input, output, session) {
   observeEvent(input$toggleOddsDist, { toggle(id = "oddsDistPanel") })
   observeEvent(input$toggleHistApps, { toggle(id = "histAppsPanel") })
   observeEvent(input$toggleHistFin, { toggle(id = "histFinPanel") })
+  
+  # Dynamic ticket formula -- only the formula, no explanation
+  output$ticketFormula <- renderUI({
+    exp_val <- input$exp
+    mult_val <- input$mult
+    apps <- input$apps
+    finishes <- input$finishes
+    volunteer <- input$volunteer
+    trailwork <- input$trailwork
+    
+    k_val <- ifelse(finishes == 0, 0,
+                    ifelse(finishes == 1, 0.5,
+                           ifelse(finishes == 2, 1,
+                                  ifelse(finishes == 3, 1.5,
+                                         ifelse(finishes >= 4, 0.5, 0)))))
+    formula_text <- paste0(
+      "<div class='formula-box'><span class='formula-highlight'>Tickets = ",
+      exp_val, "^(", k_val, " + ", apps, " + 1)",
+      " + ", mult_val, " * log(", volunteer, " + ", trailwork, " + 1)</span></div>"
+    )
+    HTML(formula_text)
+  })
   
   lottery_data <- reactive({
     load_lottery_data(data_choices[[input$year_select]])
@@ -383,7 +409,6 @@ server <- function(input, output, session) {
     women <- dff[dff$Gender == "Female", ]
     if (nrow(women) == 0) return(data.frame())
     odds <- calc_odds(women, input$Nw)
-    # Create display dataframe with pretty names
     odds_display <- odds %>%
       mutate(`Odds (%)` = round(Odds * 100, 2)) %>%
       select(
@@ -393,12 +418,12 @@ server <- function(input, output, session) {
         `Expected Picked` = Expected.Picked
       )
     datatable(odds_display, options = list(
-      dom = 'tip',        # show table, info, and pagination (no search or length change)
-      pageLength = 10,    # show 10 rows/page by default
-      lengthMenu = c(5, 10, 25, 50, 100), # allow the user to pick page size
+      dom = 'tip',
+      pageLength = 10,
+      lengthMenu = c(5, 10, 25, 50, 100),
       className = 'dt-compact-custom',
       columnDefs = list(
-        list(targets = 2, render = JS("function(data){return Math.round(data);}")), # Applicants column as integer
+        list(targets = 2, render = JS("function(data){return Math.round(data);}")),
         list(targets = "_all", className = "dt-center")
       )
     ), rownames = FALSE, class = "compact dt-compact-custom") %>%
