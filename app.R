@@ -7,26 +7,29 @@ library(shinyjs)
 library(markdown)
 library(ggplot2)
 
-# Load your data
-temp <- read.csv("./2025HLdata.csv", stringsAsFactors = FALSE)
-df <- as_tibble(temp)
-df$fullname <- paste(df$First_Name, df$Last_Name, sep = " ", collapse = NULL)
+data_choices <- c("2025" = "2025HLdata.csv",
+                  "2024" = "2024HLdata.csv",
+                  "2023" = "2023HLdata.csv")
 
-if (!"Gender" %in% names(df)) {
-  if ("Lottery.Pool" %in% names(df)) {
-    df$Gender <- ifelse(df$Lottery.Pool == "F", "Female", "Male")
+load_lottery_data <- function(fname) {
+  temp <- read.csv(fname, stringsAsFactors = FALSE)
+  df <- as_tibble(temp)
+  df$fullname <- paste(df$First_Name, df$Last_Name, sep = " ", collapse = NULL)
+  if (!"Gender" %in% names(df)) {
+    if ("Lottery.Pool" %in% names(df)) {
+      df$Gender <- ifelse(df$Lottery.Pool == "F", "Female", "Male")
+    }
   }
+  df$k <- ifelse(df$Previous_Finishes == 0, 0,
+                 ifelse(df$Previous_Finishes == 1, 0.5,
+                        ifelse(df$Previous_Finishes == 2, 1,
+                               ifelse(df$Previous_Finishes == 3, 1.5,
+                                      ifelse(df$Previous_Finishes >= 4, 0.5, 0)))))
+  df$v <- pmin(df$Volunteer_Points, 30)
+  df$t <- pmin(df$Extra_Trailwork_Points, 10)
+  df$tickets <- 2^(df$k + df$Previous_Applications + 1) + 2 * log(df$v + df$t + 1)
+  df
 }
-
-# k calculation
-df$k <- ifelse(df$Previous_Finishes == 0, 0,
-               ifelse(df$Previous_Finishes == 1, 0.5,
-                      ifelse(df$Previous_Finishes == 2, 1,
-                             ifelse(df$Previous_Finishes == 3, 1.5,
-                                    ifelse(df$Previous_Finishes >= 4, 0.5, 0)))))
-df$v <- pmin(df$Volunteer_Points, 30)
-df$t <- pmin(df$Extra_Trailwork_Points, 10)
-df$tickets <- 2^(df$k + df$Previous_Applications + 1) + 2 * log(df$v + df$t + 1)
 
 default_nw <- 103
 default_nm <- 95
@@ -66,6 +69,7 @@ ui <- fluidPage(
       width = 4,
       wellPanel(
         h4("Lottery Parameters"),
+        selectInput("year_select", "Select Data Year:", choices = names(data_choices), selected = "2025"),
         sliderInput("exp", label = "Exponent Base", min = 2, max = 5, value = 2),
         sliderInput("mult", label = "Multiplier", min = 1, max = 10, value = 2),
         numericInput("Nm", label = "Number of Men to Pick", min = 50, max = 150, value = default_nm),
@@ -83,26 +87,7 @@ ui <- fluidPage(
     column(
       width = 8,
       wellPanel(
-        # Odds collapsible
-        actionButton("toggleOdds", "Show/Hide Lottery Odds", class="collapsible-btn"),
-        tags$div(
-          id = "oddsPanel",
-          tags$div(class = "collapsible-title", "Lottery Odds"),
-          tags$div(
-            class = "odds-cols",
-            div(class = "odds-col",
-                tags$p("Odds for women:"),
-                DT::dataTableOutput("oddsW")
-            ),
-            div(style = "width: 32px;"),
-            div(class = "odds-col",
-                tags$p("Odds for men:"),
-                DT::dataTableOutput("oddsM")
-            )
-          )
-        ),
-        br(),
-        # Average Odds by Previous Applications collapsible
+        # Average Odds by Previous Applications collapsible FIRST
         actionButton("toggleAvgOdds", "Show/Hide Average Odds by Previous Applications", class="collapsible-btn"),
         tags$div(
           id = "avgOddsPanel",
@@ -117,6 +102,25 @@ ui <- fluidPage(
             div(class = "odds-col",
                 tags$p("Men:"),
                 DT::dataTableOutput("avgOddsM")
+            )
+          )
+        ),
+        br(),
+        # Full Detail Odds collapsible SECOND
+        actionButton("toggleOdds", "Show/Hide Full Detail Lottery Odds", class="collapsible-btn"),
+        tags$div(
+          id = "oddsPanel",
+          tags$div(class = "collapsible-title", "Full Detail Lottery Odds"),
+          tags$div(
+            class = "odds-cols",
+            div(class = "odds-col",
+                tags$p("Odds for women:"),
+                DT::dataTableOutput("oddsW")
+            ),
+            div(style = "width: 32px;"),
+            div(class = "odds-col",
+                tags$p("Odds for men:"),
+                DT::dataTableOutput("oddsM")
             )
           )
         ),
@@ -166,6 +170,10 @@ server <- function(input, output, session) {
   observeEvent(input$toggleHistApps, { toggle(id = "histAppsPanel") })
   observeEvent(input$toggleHistFin, { toggle(id = "histFinPanel") })
   
+  lottery_data <- reactive({
+    load_lottery_data(data_choices[[input$year_select]])
+  })
+  
   output$userTickets <- renderText({
     k_sim <- ifelse(input$finishes == 0, 0,
                     ifelse(input$finishes == 1, 0.5,
@@ -179,7 +187,7 @@ server <- function(input, output, session) {
   })
   
   population_tickets <- reactive({
-    dff <- df
+    dff <- lottery_data()
     dff$k <- ifelse(dff$Previous_Finishes == 0, 0,
                     ifelse(dff$Previous_Finishes == 1, 0.5,
                            ifelse(dff$Previous_Finishes == 2, 1,
@@ -212,17 +220,16 @@ server <- function(input, output, session) {
     )
   }
   
-  # By Previous Applications
   picks_by_prevapps <- function(group, n_pick) {
     odds_tbl <- calc_odds(group, n_pick)
     group <- left_join(group, odds_tbl, by = c("tickets" = "Tickets"))
-    group$expected_picked <- group$Odds # Use odds, not Expected.Picked (per-person probability)
+    group$expected_picked <- group$Odds
     group %>%
       group_by(Previous_Applications) %>%
       summarise(expected_num_picked = sum(expected_picked, na.rm = TRUE)) %>%
       ungroup()
   }
-  # By Previous Finishes
+  
   picks_by_prevfinishes <- function(group, n_pick) {
     odds_tbl <- calc_odds(group, n_pick)
     group <- left_join(group, odds_tbl, by = c("tickets" = "Tickets"))
@@ -233,10 +240,8 @@ server <- function(input, output, session) {
       ungroup()
   }
   
-  # ---- NEW: Average Odds by Previous Applications ----
   avg_odds_by_prevapps <- function(group, n_pick) {
     odds_tbl <- calc_odds(group, n_pick)
-    # Join odds onto group (per individual)
     group <- left_join(group, odds_tbl, by = c("tickets" = "Tickets"))
     group %>%
       group_by(Previous_Applications) %>%
@@ -298,9 +303,7 @@ server <- function(input, output, session) {
       className = 'dt-compact-custom'
     ), rownames = FALSE, class = "compact dt-compact-custom")
   })
-  # ---- END NEW ----
   
-  # Distribution of Odds Plots
   output$oddsDistW <- renderPlot({
     dff <- population_tickets()
     women <- dff[dff$Gender == "Female", ]
@@ -394,9 +397,12 @@ server <- function(input, output, session) {
       pageLength = 10,    # show 10 rows/page by default
       lengthMenu = c(5, 10, 25, 50, 100), # allow the user to pick page size
       className = 'dt-compact-custom',
-      columnDefs = list(list(targets = "_all", className = "dt-center"))
+      columnDefs = list(
+        list(targets = 2, render = JS("function(data){return Math.round(data);}")), # Applicants column as integer
+        list(targets = "_all", className = "dt-center")
+      )
     ), rownames = FALSE, class = "compact dt-compact-custom") %>%
-      formatRound(c('Tickets', 'Applicants', 'Expected Picked'), digits = 2)
+      formatRound(c('Tickets', 'Expected Picked'), digits = 2)
   })
   
   output$oddsM <- DT::renderDataTable({
@@ -417,9 +423,12 @@ server <- function(input, output, session) {
       pageLength = 10,
       lengthMenu = c(5, 10, 25, 50, 100),
       className = 'dt-compact-custom',
-      columnDefs = list(list(targets = "_all", className = "dt-center"))
+      columnDefs = list(
+        list(targets = 2, render = JS("function(data){return Math.round(data);}")),
+        list(targets = "_all", className = "dt-center")
+      )
     ), rownames = FALSE, class = "compact dt-compact-custom") %>%
-      formatRound(c('Tickets', 'Applicants', 'Expected Picked'), digits = 2)
+      formatRound(c('Tickets', 'Expected Picked'), digits = 2)
   })
 }
 
