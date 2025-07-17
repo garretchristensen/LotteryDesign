@@ -90,7 +90,13 @@ ui <- fluidPage(
         sliderInput("volunteer", label = "Volunteer Points", min = 0, max = 30, value = 0),
         sliderInput("trailwork", label = "Extra Trailwork Points", min = 0, max = 10, value = 0),
         h5("Your tickets in the lottery:"),
-        verbatimTextOutput("userTickets")
+        verbatimTextOutput("userTickets"),
+        hr(),
+        h5(textOutput("statsTitle", inline = TRUE)),
+        textOutput("avgAppsStats"),
+        textOutput("avgFinishesStats"),
+        textOutput("trailworkStats"),
+        textOutput("volunteerStats")
       )
     ),
     column(
@@ -232,6 +238,35 @@ server <- function(input, output, session) {
     t_sim <- pmin(input$trailwork, 10)
     val <- input$exp ^ (k_sim + input$apps + 1) + input$mult * log(v_sim + t_sim + 1)
     round(val, 2)
+  })
+  
+  # Calculate applicant statistics
+  output$statsTitle <- renderText({
+    paste0(input$year_select, " Applicant Statistics:")
+  })
+  
+  output$avgAppsStats <- renderText({
+    df <- base_data()
+    avg <- round(mean(df$Previous_Applications), 1)
+    paste0("Average Previous Applications: ", avg)
+  })
+  
+  output$avgFinishesStats <- renderText({
+    df <- base_data()
+    avg <- round(mean(df$Previous_Finishes), 1)
+    paste0("Average Previous Finishes: ", avg)
+  })
+  
+  output$trailworkStats <- renderText({
+    df <- base_data()
+    pct <- round(mean(df$Extra_Trailwork_Points > 0) * 100, 1)
+    paste0("Applicants with extra trailwork: ", pct, "%")
+  })
+  
+  output$volunteerStats <- renderText({
+    df <- base_data()
+    pct <- round(mean(df$Volunteer_Points > 0) * 100, 1)
+    paste0("Applicants with volunteer shifts: ", pct, "%")
   })
   
   # Apply rules to assign SelectionStatus
