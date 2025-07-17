@@ -19,6 +19,6 @@ Tickets = exp^(n + k + 1) + mult * ln(v + t + 1)
 ```
 where:
 - n = Previous Applications
-- k = Finish Multiplier
+- k = Finish Multiplier (0 finishes->0, 1f->0.5,  2f->1, 3f->=1.5, 4f or more->0.5)
 - v = Volunteer Points
 - t = Extra Trailwork Points
