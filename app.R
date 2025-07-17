@@ -71,13 +71,16 @@ ui <- fluidPage(
       width = 4,
       wellPanel(
         h4("Lottery Parameters"),
-        # Dynamic formula display (only the formula)
         uiOutput("ticketFormula"),
         selectInput("year_select", "Select Data Year:", choices = names(data_choices), selected = "2025"),
         sliderInput("exp", label = "Exponent Base", min = 2, max = 5, value = 2),
         sliderInput("mult", label = "Multiplier", min = 1, max = 10, value = 2),
         numericInput("Nm", label = "Number of Men to Pick", min = 50, max = 150, value = default_nm),
         numericInput("Nw", label = "Number of Women to Pick", min = 50, max = 150, value = default_nw),
+        hr(),
+        h4("Lottery Rule Options"),
+        checkboxInput("auto_threeplus_zero", "Auto-select all 3+ year applicants with zero previous finishes", value = FALSE),
+        checkboxInput("no_firsttime_zero", "Disallow first-time applicants with zero finishes", value = FALSE),
         hr(),
         h4("Applicant Profile (for ticket calculation)"),
         sliderInput("apps", label = "Previous Applications", min = 0, max = 6, value = 0),
@@ -91,7 +94,6 @@ ui <- fluidPage(
     column(
       width = 8,
       wellPanel(
-        # Average Odds by Previous Applications collapsible FIRST
         actionButton("toggleAvgOdds", "Show/Hide Average Odds by Previous Applications", class="collapsible-btn"),
         tags$div(
           id = "avgOddsPanel",
@@ -110,7 +112,6 @@ ui <- fluidPage(
           )
         ),
         br(),
-        # Full Detail Odds collapsible SECOND
         actionButton("toggleOdds", "Show/Hide Full Detail Lottery Odds", class="collapsible-btn"),
         tags$div(
           id = "oddsPanel",
@@ -129,7 +130,6 @@ ui <- fluidPage(
           )
         ),
         br(),
-        # Odds distribution collapsible
         actionButton("toggleOddsDist", "Show/Hide Distribution of Odds", class="collapsible-btn"),
         tags$div(
           id = "oddsDistPanel",
@@ -140,7 +140,6 @@ ui <- fluidPage(
           )
         ),
         br(),
-        # First histogram row collapsible
         actionButton("toggleHistApps", "Show/Hide Picks by Previous Applications", class="collapsible-btn"),
         tags$div(
           id = "histAppsPanel",
@@ -151,7 +150,6 @@ ui <- fluidPage(
           )
         ),
         br(),
-        # Second histogram row collapsible
         actionButton("toggleHistFin", "Show/Hide Picks by Previous Finishes", class="collapsible-btn"),
         tags$div(
           id = "histFinPanel",
@@ -174,7 +172,6 @@ server <- function(input, output, session) {
   observeEvent(input$toggleHistApps, { toggle(id = "histAppsPanel") })
   observeEvent(input$toggleHistFin, { toggle(id = "histFinPanel") })
   
-  # Dynamic ticket formula -- only the formula, no explanation
   output$ticketFormula <- renderUI({
     exp_val <- input$exp
     mult_val <- input$mult
@@ -200,6 +197,40 @@ server <- function(input, output, session) {
     load_lottery_data(data_choices[[input$year_select]])
   })
   
+  processed_pop <- reactive({
+    df <- lottery_data()
+    df$SelectionStatus <- "Lottery"
+    if (input$auto_threeplus_zero) {
+      idx <- df$Previous_Applications >= 3 & df$Previous_Finishes == 0
+      df$SelectionStatus[idx] <- "Auto-Selected"
+    }
+    if (input$no_firsttime_zero) {
+      idx <- df$Previous_Applications == 0 & df$Previous_Finishes == 0
+      df$SelectionStatus[idx] <- "Removed"
+    }
+    df
+  })
+  
+  auto_selected_counts <- reactive({
+    df <- processed_pop()
+    list(
+      women = sum(df$Gender == "Female" & df$SelectionStatus == "Auto-Selected"),
+      men = sum(df$Gender == "Male" & df$SelectionStatus == "Auto-Selected")
+    )
+  })
+  
+  lottery_population <- reactive({
+    df <- processed_pop()
+    df[df$SelectionStatus == "Lottery", ]
+  })
+  
+  adjusted_Nw <- reactive({
+    max(input$Nw - auto_selected_counts()$women, 0)
+  })
+  adjusted_Nm <- reactive({
+    max(input$Nm - auto_selected_counts()$men, 0)
+  })
+  
   output$userTickets <- renderText({
     k_sim <- ifelse(input$finishes == 0, 0,
                     ifelse(input$finishes == 1, 0.5,
@@ -213,7 +244,7 @@ server <- function(input, output, session) {
   })
   
   population_tickets <- reactive({
-    dff <- lottery_data()
+    dff <- processed_pop()
     dff$k <- ifelse(dff$Previous_Finishes == 0, 0,
                     ifelse(dff$Previous_Finishes == 1, 0.5,
                            ifelse(dff$Previous_Finishes == 2, 1,
@@ -226,6 +257,7 @@ server <- function(input, output, session) {
   })
   
   calc_odds <- function(group, n_pick) {
+    if (nrow(group) == 0 || n_pick <= 0) return(data.frame())
     applicants <- pull((group %>% count(tickets))[, 2], n)
     tickets_per_applicant <- sort(unique(group$tickets))
     original_tickets <- applicants * tickets_per_applicant
@@ -246,30 +278,22 @@ server <- function(input, output, session) {
     )
   }
   
-  picks_by_prevapps <- function(group, n_pick) {
-    odds_tbl <- calc_odds(group, n_pick)
-    group <- left_join(group, odds_tbl, by = c("tickets" = "Tickets"))
-    group$expected_picked <- group$Odds
-    group %>%
-      group_by(Previous_Applications) %>%
-      summarise(expected_num_picked = sum(expected_picked, na.rm = TRUE)) %>%
-      ungroup()
+  assign_odds <- function(df, n_pick) {
+    group_lottery <- df[df$SelectionStatus == "Lottery", ]
+    odds_tbl <- calc_odds(group_lottery, n_pick)
+    df$Odds <- NA
+    if (nrow(odds_tbl) > 0 && nrow(group_lottery) > 0) {
+      odds_map <- setNames(odds_tbl$Odds, odds_tbl$Tickets)
+      idx <- which(df$SelectionStatus == "Lottery")
+      df$Odds[idx] <- odds_map[as.character(df$tickets[idx])]
+    }
+    df$Odds[df$SelectionStatus == "Auto-Selected"] <- 1
+    df$Odds[df$SelectionStatus == "Removed"] <- 0
+    df
   }
   
-  picks_by_prevfinishes <- function(group, n_pick) {
-    odds_tbl <- calc_odds(group, n_pick)
-    group <- left_join(group, odds_tbl, by = c("tickets" = "Tickets"))
-    group$expected_picked <- group$Odds
-    group %>%
-      group_by(Previous_Finishes) %>%
-      summarise(expected_num_picked = sum(expected_picked, na.rm = TRUE)) %>%
-      ungroup()
-  }
-  
-  avg_odds_by_prevapps <- function(group, n_pick) {
-    odds_tbl <- calc_odds(group, n_pick)
-    group <- left_join(group, odds_tbl, by = c("tickets" = "Tickets"))
-    group %>%
+  avg_odds_by_prevapps <- function(df) {
+    df %>%
       group_by(Previous_Applications) %>%
       summarise(
         n_people = n(),
@@ -280,11 +304,70 @@ server <- function(input, output, session) {
       ungroup()
   }
   
+  picks_by_prevapps <- function(df) {
+    df %>%
+      group_by(Previous_Applications) %>%
+      summarise(expected_num_picked = sum(Odds, na.rm = TRUE)) %>%
+      ungroup()
+  }
+  
+  picks_by_prevfinishes <- function(df) {
+    df %>%
+      group_by(Previous_Finishes) %>%
+      summarise(expected_num_picked = sum(Odds, na.rm = TRUE)) %>%
+      ungroup()
+  }
+  
+  # ---- DETAILED ODDS TABLE LOGIC ----
+  # Show one row per unique "profile", where a profile is a unique combination of
+  # - tickets
+  # - previous applications
+  # - previous finishes
+  # - status (Lottery/Auto-Selected/Removed)
+  # This is needed so people with same tickets but different histories/selection status are distinct rows.
+  # However, if both rules are OFF, group only by tickets (for back-compat).
+  
+  detailed_odds_df <- function(applicants_df, n_pick, rules_on) {
+    df <- assign_odds(applicants_df, n_pick)
+    if (rules_on) {
+      df %>%
+        group_by(
+          tickets, Odds, SelectionStatus, Previous_Applications, Previous_Finishes
+        ) %>%
+        summarise(
+          N = n(),
+          .groups = "drop"
+        ) %>%
+        mutate(
+          `Odds (%)` = round(Odds * 100, 2),
+          Status = SelectionStatus
+        ) %>%
+        arrange(desc(Status), desc(Odds), tickets)
+    } else {
+      df %>%
+        group_by(tickets) %>%
+        summarise(
+          Odds = mean(Odds, na.rm = TRUE),
+          N = n(),
+          `Previous Applications` = min(Previous_Applications),
+          `Previous Finishes` = min(Previous_Finishes)
+        ) %>%
+        mutate(
+          `Odds (%)` = round(Odds * 100, 2),
+          Status = "Lottery"
+        ) %>%
+        select(
+          tickets, `Odds (%)`, Status, `Previous Applications`, `Previous Finishes`, N
+        ) %>%
+        arrange(desc(Odds), tickets)
+    }
+  }
+  
   output$avgOddsW <- DT::renderDataTable({
     dff <- population_tickets()
     women <- dff[dff$Gender == "Female", ]
-    if (nrow(women) == 0) return(data.frame())
-    avg_tbl <- avg_odds_by_prevapps(women, input$Nw)
+    women <- assign_odds(women, adjusted_Nw())
+    avg_tbl <- avg_odds_by_prevapps(women)
     avg_tbl <- avg_tbl %>%
       mutate(
         `Average Odds (%)` = round(avg_odds * 100, 2),
@@ -308,8 +391,8 @@ server <- function(input, output, session) {
   output$avgOddsM <- DT::renderDataTable({
     dff <- population_tickets()
     men <- dff[dff$Gender == "Male", ]
-    if (nrow(men) == 0) return(data.frame())
-    avg_tbl <- avg_odds_by_prevapps(men, input$Nm)
+    men <- assign_odds(men, adjusted_Nm())
+    avg_tbl <- avg_odds_by_prevapps(men)
     avg_tbl <- avg_tbl %>%
       mutate(
         `Average Odds (%)` = round(avg_odds * 100, 2),
@@ -333,12 +416,12 @@ server <- function(input, output, session) {
   output$oddsDistW <- renderPlot({
     dff <- population_tickets()
     women <- dff[dff$Gender == "Female", ]
-    if (nrow(women) == 0) return(NULL)
-    odds_tbl <- calc_odds(women, input$Nw)
-    ggplot(odds_tbl, aes(x = Tickets, y = Odds)) +
-      geom_point(color = "#B7822E", size = 2) +
-      geom_line(color = "#B7822E") +
-      scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    women <- assign_odds(women, adjusted_Nw())
+    ggplot(women, aes(x = tickets, y = Odds, color = SelectionStatus, shape = SelectionStatus)) +
+      geom_point(size = 2) +
+      scale_color_manual(values = c("Lottery" = "#B7822E", "Auto-Selected" = "forestgreen", "Removed" = "red")) +
+      scale_shape_manual(values = c("Lottery" = 16, "Auto-Selected" = 17, "Removed" = 4)) +
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0,1)) +
       labs(x = "Tickets", y = "Odds", title = "Women: Odds by Ticket Value") +
       theme_minimal(base_size = 14)
   })
@@ -346,12 +429,12 @@ server <- function(input, output, session) {
   output$oddsDistM <- renderPlot({
     dff <- population_tickets()
     men <- dff[dff$Gender == "Male", ]
-    if (nrow(men) == 0) return(NULL)
-    odds_tbl <- calc_odds(men, input$Nm)
-    ggplot(odds_tbl, aes(x = Tickets, y = Odds)) +
-      geom_point(color = "#2270AE", size = 2) +
-      geom_line(color = "#2270AE") +
-      scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    men <- assign_odds(men, adjusted_Nm())
+    ggplot(men, aes(x = tickets, y = Odds, color = SelectionStatus, shape = SelectionStatus)) +
+      geom_point(size = 2) +
+      scale_color_manual(values = c("Lottery" = "#2270AE", "Auto-Selected" = "forestgreen", "Removed" = "red")) +
+      scale_shape_manual(values = c("Lottery" = 16, "Auto-Selected" = 17, "Removed" = 4)) +
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0,1)) +
       labs(x = "Tickets", y = "Odds", title = "Men: Odds by Ticket Value") +
       theme_minimal(base_size = 14)
   })
@@ -359,8 +442,8 @@ server <- function(input, output, session) {
   output$histW <- renderPlot({
     dff <- population_tickets()
     women <- dff[dff$Gender == "Female", ]
-    if (nrow(women) == 0) return(NULL)
-    dist <- picks_by_prevapps(women, input$Nw)
+    women <- assign_odds(women, adjusted_Nw())
+    dist <- picks_by_prevapps(women)
     ggplot(dist, aes(x = factor(Previous_Applications), y = expected_num_picked)) +
       geom_col(fill = "#B7822E", color = "black") +
       labs(x = "Previous Applications", y = "Expected # Women Picked", 
@@ -371,8 +454,8 @@ server <- function(input, output, session) {
   output$histM <- renderPlot({
     dff <- population_tickets()
     men <- dff[dff$Gender == "Male", ]
-    if (nrow(men) == 0) return(NULL)
-    dist <- picks_by_prevapps(men, input$Nm)
+    men <- assign_odds(men, adjusted_Nm())
+    dist <- picks_by_prevapps(men)
     ggplot(dist, aes(x = factor(Previous_Applications), y = expected_num_picked)) +
       geom_col(fill = "#2270AE", color = "black") +
       labs(x = "Previous Applications", y = "Expected # Men Picked", 
@@ -383,8 +466,8 @@ server <- function(input, output, session) {
   output$finHistW <- renderPlot({
     dff <- population_tickets()
     women <- dff[dff$Gender == "Female", ]
-    if (nrow(women) == 0) return(NULL)
-    dist <- picks_by_prevfinishes(women, input$Nw)
+    women <- assign_odds(women, adjusted_Nw())
+    dist <- picks_by_prevfinishes(women)
     ggplot(dist, aes(x = factor(Previous_Finishes), y = expected_num_picked)) +
       geom_col(fill = "#E1B882", color = "black") +
       labs(x = "Previous Finishes", y = "Expected # Women Picked", 
@@ -395,8 +478,8 @@ server <- function(input, output, session) {
   output$finHistM <- renderPlot({
     dff <- population_tickets()
     men <- dff[dff$Gender == "Male", ]
-    if (nrow(men) == 0) return(NULL)
-    dist <- picks_by_prevfinishes(men, input$Nm)
+    men <- assign_odds(men, adjusted_Nm())
+    dist <- picks_by_prevfinishes(men)
     ggplot(dist, aes(x = factor(Previous_Finishes), y = expected_num_picked)) +
       geom_col(fill = "#9EC6F5", color = "black") +
       labs(x = "Previous Finishes", y = "Expected # Men Picked", 
@@ -404,18 +487,21 @@ server <- function(input, output, session) {
       theme_minimal(base_size = 14)
   })
   
+  # ---- DETAILED ODDS TABLES ----
+  
   output$oddsW <- DT::renderDataTable({
     dff <- population_tickets()
     women <- dff[dff$Gender == "Female", ]
-    if (nrow(women) == 0) return(data.frame())
-    odds <- calc_odds(women, input$Nw)
-    odds_display <- odds %>%
-      mutate(`Odds (%)` = round(Odds * 100, 2)) %>%
+    rules_on <- input$auto_threeplus_zero || input$no_firsttime_zero
+    odds_display <- detailed_odds_df(women, adjusted_Nw(), rules_on)
+    odds_display <- odds_display %>%
       select(
-        `Tickets` = Tickets,
+        `Tickets` = tickets,
         `Odds (%)`,
-        `Applicants` = Applicants,
-        `Expected Picked` = Expected.Picked
+        `Status`,
+        `Previous Applications`,
+        `Previous Finishes`,
+        `N Applicants` = N
       )
     datatable(odds_display, options = list(
       dom = 'tip',
@@ -423,25 +509,25 @@ server <- function(input, output, session) {
       lengthMenu = c(5, 10, 25, 50, 100),
       className = 'dt-compact-custom',
       columnDefs = list(
-        list(targets = 2, render = JS("function(data){return Math.round(data);}")),
         list(targets = "_all", className = "dt-center")
       )
     ), rownames = FALSE, class = "compact dt-compact-custom") %>%
-      formatRound(c('Tickets', 'Expected Picked'), digits = 2)
+      formatRound(c('Tickets'), digits = 2)
   })
   
   output$oddsM <- DT::renderDataTable({
     dff <- population_tickets()
     men <- dff[dff$Gender == "Male", ]
-    if (nrow(men) == 0) return(data.frame())
-    odds <- calc_odds(men, input$Nm)
-    odds_display <- odds %>%
-      mutate(`Odds (%)` = round(Odds * 100, 2)) %>%
+    rules_on <- input$auto_threeplus_zero || input$no_firsttime_zero
+    odds_display <- detailed_odds_df(men, adjusted_Nm(), rules_on)
+    odds_display <- odds_display %>%
       select(
-        `Tickets` = Tickets,
+        `Tickets` = tickets,
         `Odds (%)`,
-        `Applicants` = Applicants,
-        `Expected Picked` = Expected.Picked
+        `Status`,
+        `Previous Applications`,
+        `Previous Finishes`,
+        `N Applicants` = N
       )
     datatable(odds_display, options = list(
       dom = 'tip',
@@ -449,11 +535,10 @@ server <- function(input, output, session) {
       lengthMenu = c(5, 10, 25, 50, 100),
       className = 'dt-compact-custom',
       columnDefs = list(
-        list(targets = 2, render = JS("function(data){return Math.round(data);}")),
         list(targets = "_all", className = "dt-center")
       )
     ), rownames = FALSE, class = "compact dt-compact-custom") %>%
-      formatRound(c('Tickets', 'Expected Picked'), digits = 2)
+      formatRound(c('Tickets'), digits = 2)
   })
 }
 
