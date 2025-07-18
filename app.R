@@ -70,7 +70,7 @@ ui <- fluidPage(
       wellPanel(
         h4("Lottery Parameters"),
         uiOutput("ticketFormula"),
-        selectInput("year_select", "Select Data Year:", choices = c("2025", "2024", "2023"), selected = "2025"),
+        selectInput("year_select", "Select Data Year:", choices = c("2026", "2025", "2024", "2023"), selected = "2025"),
         sliderInput("exp", label = "Exponent Base", min = 2, max = 5, value = 2),
         sliderInput("mult", label = "Multiplier", min = 1, max = 10, value = 2),
         numericInput("Nm", label = "Number of Men to Pick", min = 0, max = 200, value = default_nm),
@@ -204,6 +204,7 @@ server <- function(input, output, session) {
   # Load and preprocess data from selected year, recalculate tickets
   base_data <- reactive({
     fname <- switch(input$year_select,
+                    "2026" = "2026HLdata.csv",
                     "2025" = "2025HLdata.csv",
                     "2024" = "2024HLdata.csv",
                     "2023" = "2023HLdata.csv")

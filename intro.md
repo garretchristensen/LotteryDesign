@@ -1,4 +1,5 @@
 There are many ways to weight applicants in the lottery. Here you can pick a weighting formula and see how it would change results using the 2025, 2024, or 2023 High Lonesome data.
+You can also look at synthetic data for 2026 and 2027 built on prediction models. You can see the modeling in a Jupyter notebook here.
 
 **General goals of the lottery:**
 - Equal numbers of men and women
