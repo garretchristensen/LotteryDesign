@@ -1,7 +1,3 @@
-# Freestone Lottery Odds Shiny App - Full Version, Odds ALWAYS Displayed to Two Decimals (No More, No Less)
-# All comments, features, and formatting preserved.
-# In the detailed odds tables, both "tickets" and "Odds (%)" columns are now always two decimals (as character), never more.
-
 library(shiny)
 library(dplyr)
 library(tibble)
@@ -10,8 +6,10 @@ library(bslib)
 library(ggplot2)
 library(shinyjs)
 library(markdown)
+library(memoise)  # Only for Monte Carlo memoization
+library(digest)   # Only for Monte Carlo memoization
 
-# Function: Calculate odds for each entry in a multi-pick lottery without replacement
+# Function: Exact odds calculation (without replacement)
 calc_lottery_odds <- function(tickets, n_picks) {
   if (length(tickets) == 0 || n_picks <= 0) return(numeric(0))
   survivors <- rep(1, length(tickets))
@@ -24,6 +22,32 @@ calc_lottery_odds <- function(tickets, n_picks) {
     survivors <- survivors * (1 - prob_win)
   }
   odds
+}
+
+# Function: Simulate one draw (Monte Carlo)
+simulate_draw <- function(tickets, n_picks) {
+  selected <- integer(0)
+  remaining <- seq_along(tickets)
+  remaining_tickets <- tickets
+  for (i in seq_len(n_picks)) {
+    if (length(remaining) == 0) break
+    probs <- remaining_tickets / sum(remaining_tickets)
+    pick <- sample(remaining, 1, prob = probs)
+    selected <- c(selected, pick)
+    remaining_tickets <- remaining_tickets[remaining != pick]
+    remaining <- remaining[remaining != pick]
+  }
+  selected
+}
+
+# Function: Monte Carlo odds over many simulations
+simulate_odds <- function(tickets, n_picks, n_sim = 10000) {
+  counts <- numeric(length(tickets))
+  for (i in seq_len(n_sim)) {
+    picks <- simulate_draw(tickets, n_picks)
+    counts[picks] <- counts[picks] + 1
+  }
+  counts / n_sim
 }
 
 default_nw <- 103
@@ -58,127 +82,137 @@ ui <- fluidPage(
     tags$img(src = "image1.png", alt = "Freestone Logo"),
     tags$div(class = "intro-title", "Lottery Design Choices")
   ),
-  tags$br(),
+  br(),
   actionButton("toggleIntro", "Show/Hide Introduction", icon = icon("info-circle")),
   hidden(
     div(id = "introPanel", wellPanel(includeMarkdown("intro.md")))
   ),
-  tags$br(),
-  fluidRow(
-    column(
-      width = 4,
-      wellPanel(
-        h4("Lottery Parameters"),
-        uiOutput("ticketFormula"),
-        selectInput("year_select", "Select Data Year:", choices = c("2026", "2025", "2024", "2023"), selected = "2025"),
-        sliderInput("exp", label = "Exponent Base", min = 2, max = 5, value = 2),
-        sliderInput("mult", label = "Multiplier", min = 1, max = 10, value = 2),
-        numericInput("Nm", label = "Number of Men to Pick", min = 0, max = 200, value = default_nm),
-        numericInput("Nw", label = "Number of Women to Pick", min = 0, max = 200, value = default_nw),
-        hr(),
-        h4("Discrete Rule Options"),
-        radioButtons("threeplus_rule", "3+ year applicant rule:",
-                     choices = list("None" = "none",
-                                    "Auto-select 3+ year applicants with no finishes" = "zero_finishes",
-                                    "Auto-select 3+ year applicants regardless of finishes" = "all_finishes"),
-                     selected = "none"),
-        checkboxInput("no_firsttime_zero", "Disallow first-time applicants with no finishes", value = FALSE),
-        hr(),
-        h4("Applicant Profile (for ticket calculation)"),
-        sliderInput("apps", label = "Previous Applications", min = 0, max = 6, value = 0),
-        sliderInput("finishes", label = "Previous Finishes", min = 0, max = 5, value = 0),
-        sliderInput("volunteer", label = "Volunteer Points", min = 0, max = 30, value = 0),
-        sliderInput("trailwork", label = "Extra Trailwork Points", min = 0, max = 10, value = 0),
-        h5("Your tickets in the lottery:"),
-        verbatimTextOutput("userTickets"),
-        hr(),
-        h5(textOutput("statsTitle", inline = TRUE)),
-        textOutput("avgAppsStats"),
-        textOutput("avgFinishesStats"),
-        textOutput("trailworkStats"),
-        textOutput("volunteerStats")
-      )
+  br(),
+  
+  sidebarLayout(
+    sidebarPanel(
+      h4("Lottery Parameters"),
+      uiOutput("ticketFormula"),
+      selectInput("year_select", "Data Year:", choices = c("2026", "2025", "2024", "2023"), selected = "2025"),
+      sliderInput("exp", "Exponent Base:", min = 2, max = 5, value = 2),
+      sliderInput("mult", "Multiplier:", min = 1, max = 10, value = 2),
+      numericInput("Nm", "Number of Men to Pick:", min = 0, max = 200, value = default_nm),
+      numericInput("Nw", "Number of Women to Pick:", min = 0, max = 200, value = default_nw),
+      h4("Discrete Rules"),
+      radioButtons("threeplus_rule", "3+ year applicant rule:",
+                   choices = list("None" = "none",
+                                  "Auto-select 3+ year applicants with no finishes" = "zero_finishes",
+                                  "Auto-select 3+ year applicants regardless of finishes" = "all_finishes"),
+                   selected = "none"),
+      checkboxInput("no_firsttime_zero", "Disallow first-time applicants with no finishes", FALSE),
+      hr(),
+      radioButtons("odds_method", "Odds Calculation Method:",
+                   choices = c("Deterministic (Fast)" = "deterministic",
+                               "Monte Carlo (N = 1,000, Slow)" = "mc1000",
+                               "Monte Carlo (N = 10,000, Slower)" = "mc10000"),
+                   selected = "deterministic"),
+      hr(),
+      h4("Example Applicant Profile"),
+      sliderInput("apps", label = "Previous Applications", min = 0, max = 6, value = 0),
+      sliderInput("finishes", label = "Previous Finishes", min = 0, max = 5, value = 0),
+      sliderInput("volunteer", label = "Volunteer Points", min = 0, max = 30, value = 0),
+      sliderInput("trailwork", label = "Extra Trailwork Points", min = 0, max = 10, value = 0),
+      h5("Your tickets in the lottery:"),
+      verbatimTextOutput("userTickets"),
+      hr(),
+      h5(textOutput("statsTitle", inline = TRUE)),
+      textOutput("avgAppsStats"),
+      textOutput("avgFinishesStats"),
+      textOutput("trailworkStats"),
+      textOutput("volunteerStats")
+
     ),
-    column(
-      width = 8,
-      wellPanel(
-        actionButton("toggleAvgOdds", "Show/Hide Average Odds by Previous Applications", class="collapsible-btn"),
-        tags$div(
-          id = "avgOddsPanel",
-          tags$div(class = "collapsible-title", "Average Odds by Previous Applications"),
-          tags$div(
-            class = "odds-cols",
-            div(class = "odds-col",
-                tags$p("Women:"),
-                DT::dataTableOutput("avgOddsW")
-            ),
-            div(style = "width: 32px;"),
-            div(class = "odds-col",
-                tags$p("Men:"),
-                DT::dataTableOutput("avgOddsM")
-            )
-          )
-        ),
-        br(),
-        actionButton("toggleOdds", "Show/Hide Full Detail Lottery Odds", class="collapsible-btn"),
-        tags$div(
-          id = "oddsPanel",
-          tags$div(class = "collapsible-title", "Full Detail Lottery Odds (Grouped by Profile)"),
-          tags$div(
-            class = "odds-cols",
-            div(class = "odds-col",
-                tags$p("Women:"),
-                DT::dataTableOutput("oddsW")
-            ),
-            div(style = "width: 32px;"),
-            div(class = "odds-col",
-                tags$p("Men:"),
-                DT::dataTableOutput("oddsM")
-            )
-          )
-        ),
-        br(),
-        actionButton("toggleOddsDist", "Show/Hide Distribution of Odds", class="collapsible-btn"),
-        tags$div(
-          id = "oddsDistPanel",
-          tags$div(class = "collapsible-title", "Distribution of Odds (Tickets vs Odds)"),
-          fluidRow(
-            column(6, plotOutput("oddsDistW")),
-            column(6, plotOutput("oddsDistM"))
-          )
-        ),
-        br(),
-        actionButton("toggleHistApps", "Show/Hide Picks by Previous Applications", class="collapsible-btn"),
-        tags$div(
-          id = "histAppsPanel",
-          tags$div(class = "collapsible-title", "Expected Distribution of Picks by Previous Applications"),
-          fluidRow(
-            column(6, plotOutput("histW")),
-            column(6, plotOutput("histM"))
-          )
-        ),
-        br(),
-        actionButton("toggleHistFin", "Show/Hide Picks by Previous Finishes", class="collapsible-btn"),
-        tags$div(
-          id = "histFinPanel",
-          tags$div(class = "collapsible-title", "Expected Distribution of Picks by Previous Finishes"),
-          fluidRow(
-            column(6, plotOutput("finHistW")),
-            column(6, plotOutput("finHistM"))
-          )
+    mainPanel(
+      h3("Lottery Odds Summary"),
+      actionButton("toggleAvgOdds", "Show/Hide Average Odds by Previous Applications", class = "collapsible-btn"),
+      tags$div(
+        id = "avgOddsPanel",
+        fluidRow(
+          column(6, DTOutput("avgOddsW")),
+          column(6, DTOutput("avgOddsM"))
+        )
+      ),
+      br(),
+      h3("Detailed Odds"),
+      actionButton("toggleOdds", "Show/Hide Full Detail Lottery Odds", class = "collapsible-btn"),
+      tags$div(
+        id = "oddsPanel",
+        fluidRow(
+          column(6, DTOutput("oddsW")),
+          column(6, DTOutput("oddsM"))
+        )
+      ),
+      br(),
+      h3("Distribution of Odds (Tickets vs Odds)"),
+      actionButton("toggleOddsDist", "Show/Hide Distribution of Odds", class = "collapsible-btn"),
+      tags$div(
+        id = "oddsDistPanel",
+        fluidRow(
+          column(6, plotOutput("oddsDistW")),
+          column(6, plotOutput("oddsDistM"))
+        )
+      ),
+      
+      
+      br(),
+      actionButton("toggleHistApps", "Show/Hide Picks by Previous Applications", class="collapsible-btn"),
+      tags$div(
+        id = "histAppsPanel",
+        tags$div(class = "collapsible-title", "Expected Distribution of Picks by Previous Applications"),
+        fluidRow(
+          column(6, plotOutput("histW")),
+          column(6, plotOutput("histM"))
+        )
+      ),
+      br(),
+      actionButton("toggleHistFin", "Show/Hide Picks by Previous Finishes", class="collapsible-btn"),
+      tags$div(
+        id = "histFinPanel",
+        tags$div(class = "collapsible-title", "Expected Distribution of Picks by Previous Finishes"),
+        fluidRow(
+          column(6, plotOutput("finHistW")),
+          column(6, plotOutput("finHistM"))
         )
       )
     )
   )
 )
 
+# Wrap simulate_odds call with progress bar
+withProgressSimulate <- function(tix, picks, n_sim, label = "Running Monte Carlo...") {
+  withProgress(message = label, value = 0.3, {
+    Sys.sleep(0.1)  # Allow UI to update
+    simulate_odds(tix, picks, n_sim)
+  })
+}
+
+
 server <- function(input, output, session) {
-  observeEvent(input$toggleIntro, { toggle(id = "introPanel") })
-  observeEvent(input$toggleOdds, { toggle(id = "oddsPanel") })
-  observeEvent(input$toggleAvgOdds, { toggle(id = "avgOddsPanel") })
-  observeEvent(input$toggleOddsDist, { toggle(id = "oddsDistPanel") })
-  observeEvent(input$toggleHistApps, { toggle(id = "histAppsPanel") })
-  observeEvent(input$toggleHistFin, { toggle(id = "histFinPanel") })
+  
+  observeEvent(input$toggleIntro, { shinyjs::toggle(id = "introPanel") })
+  observeEvent(input$toggleAvgOdds, { shinyjs::toggle(id = "avgOddsPanel") })
+  observeEvent(input$toggleOdds, { shinyjs::toggle(id = "oddsPanel") })
+  observeEvent(input$toggleOddsDist, { shinyjs::toggle(id = "oddsDistPanel") })
+  observeEvent(input$toggleHistApps, { toggle("histAppsPanel") })
+  observeEvent(input$toggleHistFin, { toggle("histFinPanel") })
+
+  # Memoized simulate_odds including exp, mult, year, rules, and number picked in key
+  memo_simulate_odds <- memoise::memoise(function(tix, picks, n_sim, exp_val, mult_val, year, rule, no_firsttime_zero) {
+    key <- digest::digest(list(round(tix, 8), picks, n_sim, exp_val, mult_val, year, rule, no_firsttime_zero))
+    attr(tix, "digest_key") <- key
+    withProgressSimulate(tix, picks, n_sim)
+  })
+  
+  
+  # Reactive selector for display odds column
+  display_odds_col <- reactive({
+    if (input$odds_method %in% c("mc1000", "mc10000")) "Odds_MC" else "Odds_Exact"
+  })
   
   # Show dynamic ticket formula
   output$ticketFormula <- renderUI({
@@ -201,7 +235,6 @@ server <- function(input, output, session) {
     HTML(formula_text)
   })
   
-  # Load and preprocess data from selected year, recalculate tickets
   base_data <- reactive({
     fname <- switch(input$year_select,
                     "2026" = "2026HLdata.csv",
@@ -213,18 +246,15 @@ server <- function(input, output, session) {
         Gender = ifelse(Lottery.Pool == "F", "Female", "Male"),
         Previous_Applications = as.numeric(Previous_Applications),
         Previous_Finishes = as.numeric(Previous_Finishes),
-        Volunteer_Points = as.numeric(Volunteer_Points),
-        Extra_Trailwork_Points = as.numeric(Extra_Trailwork_Points)
+        Volunteer_Points = pmin(as.numeric(Volunteer_Points), 30),
+        Extra_Trailwork_Points = pmin(as.numeric(Extra_Trailwork_Points), 10)
       )
     df$k <- ifelse(df$Previous_Finishes == 0, 0,
                    ifelse(df$Previous_Finishes == 1, 0.5,
                           ifelse(df$Previous_Finishes == 2, 1,
-                                 ifelse(df$Previous_Finishes == 3, 1.5,
-                                        ifelse(df$Previous_Finishes >= 4, 0.5, 0)))))
-    df$v <- pmin(df$Volunteer_Points, 30)
-    df$t <- pmin(df$Extra_Trailwork_Points, 10)
+                                 ifelse(df$Previous_Finishes == 3, 1.5, 0.5))))
     df$tickets <- input$exp ^ (df$k + df$Previous_Applications + 1) +
-      input$mult * log(df$v + df$t + 1)
+      input$mult * log(df$Volunteer_Points + df$Extra_Trailwork_Points + 1)
     df
   })
   
@@ -241,232 +271,237 @@ server <- function(input, output, session) {
     round(val, 2)
   })
   
-  # Calculate applicant statistics
-  output$statsTitle <- renderText({
-    paste0(input$year_select, " Applicant Statistics:")
-  })
-  
-  output$avgAppsStats <- renderText({
-    df <- base_data()
-    avg <- round(mean(df$Previous_Applications), 1)
-    paste0("Average Previous Applications: ", avg)
-  })
-  
-  output$avgFinishesStats <- renderText({
-    df <- base_data()
-    avg <- round(mean(df$Previous_Finishes), 1)
-    paste0("Average Previous Finishes: ", avg)
-  })
-  
-  output$trailworkStats <- renderText({
-    df <- base_data()
-    pct <- round(mean(df$Extra_Trailwork_Points > 0) * 100, 1)
-    paste0("Applicants with extra trailwork: ", pct, "%")
-  })
-  
-  output$volunteerStats <- renderText({
-    df <- base_data()
-    pct <- round(mean(df$Volunteer_Points > 0) * 100, 1)
-    paste0("Applicants with volunteer shifts: ", pct, "%")
-  })
-  
-  # Apply rules to assign SelectionStatus
   processed_data <- reactive({
     df <- base_data()
     df$SelectionStatus <- "Lottery"
-    
-    # Apply 3+ year applicant rules (mutually exclusive)
     if (input$threeplus_rule == "zero_finishes") {
       df$SelectionStatus[df$Previous_Applications >= 3 & df$Previous_Finishes == 0] <- "Auto-Selected"
     } else if (input$threeplus_rule == "all_finishes") {
       df$SelectionStatus[df$Previous_Applications >= 3] <- "Auto-Selected"
     }
-    
-    # Apply first-time applicant rule
     if (input$no_firsttime_zero) {
       df$SelectionStatus[df$Previous_Applications == 0 & df$Previous_Finishes == 0] <- "Removed"
     }
     df
   })
   
-  # Assign odds for each gender, only for those in the pool
-  assign_odds <- function(df, gender, n_picks) {
-    in_draw <- which(df$SelectionStatus == "Lottery" & df$Gender == gender)
-    odds <- rep(NA_real_, nrow(df))
-    if (length(in_draw) > 0 && n_picks > 0) {
-      odds[in_draw] <- calc_lottery_odds(df$tickets[in_draw], n_picks)
-    }
-    odds[df$SelectionStatus == "Auto-Selected" & df$Gender == gender] <- 1
-    odds[df$SelectionStatus == "Removed" & df$Gender == gender] <- 0
-    odds
+  calc_deterministic_odds <- function(tix, picks, exp_val, mult_val, year, rule, no_firsttime_zero) {
+    key <- digest::digest(list(round(tix, 8), picks, exp_val, mult_val, year, rule, no_firsttime_zero))
+    attr(tix, "deterministic_key") <- key
+    calc_lottery_odds(tix, picks)
   }
   
-  # Compute odds for all applicants, only pool applicants affect calculation
+  # Simplified assigned_data() reactive function
   assigned_data <- reactive({
     df <- processed_data()
     n_picks_w <- max(0, input$Nw - sum(df$Gender == "Female" & df$SelectionStatus == "Auto-Selected"))
     n_picks_m <- max(0, input$Nm - sum(df$Gender == "Male" & df$SelectionStatus == "Auto-Selected"))
-    df$Odds <- assign_odds(df, "Female", n_picks_w)
-    df$Odds[df$Gender == "Male"] <- assign_odds(df, "Male", n_picks_m)[df$Gender == "Male"]
+    
+    df$Odds_Exact <- NA_real_
+    df$Odds_MC <- NA_real_
+    
+    run_mc <- input$odds_method %in% c("mc1000", "mc10000")
+    n_sim <- switch(input$odds_method,
+                    "mc1000" = 1000,
+                    "mc10000" = 10000,
+                    0)
+    
+    for (gender in c("Female", "Male")) {
+      idx <- which(df$Gender == gender & df$SelectionStatus == "Lottery")
+      picks <- ifelse(gender == "Female", n_picks_w, n_picks_m)
+      
+      if (length(idx) > 0 && picks > 0) {
+        tix <- df$tickets[idx]
+        
+        # Direct calculation - no memoization needed, super fast
+        df$Odds_Exact[idx] <- calc_lottery_odds(tix, picks)
+        
+        # Only memoize the slow Monte Carlo simulations
+        if (run_mc) {
+          df$Odds_MC[idx] <- memo_simulate_odds(
+            tix = tix,
+            picks = picks,
+            n_sim = n_sim,
+            exp_val = input$exp,
+            mult_val = input$mult,
+            year = input$year_select,
+            rule = input$threeplus_rule,
+            no_firsttime_zero = input$no_firsttime_zero
+          )
+        }
+      }
+      
+      # Handle auto-selected and removed cases
+      df$Odds_Exact[df$Gender == gender & df$SelectionStatus == "Auto-Selected"] <- 1
+      df$Odds_MC[df$Gender == gender & df$SelectionStatus == "Auto-Selected"] <- 1
+      df$Odds_Exact[df$Gender == gender & df$SelectionStatus == "Removed"] <- 0
+      df$Odds_MC[df$Gender == gender & df$SelectionStatus == "Removed"] <- 0
+    }
+    
     df
-  })
+  }) 
   
-  # --- DETAILED ODDS TABLES: odds and tickets as "x.xx" character, always two decimals, never more. ---
+  get_display_odds <- function(df) {
+    method <- input$odds_method
+    if (method %in% c("mc1000", "mc10000")) df$Odds_MC else df$Odds_Exact
+  }
+  
+  output$avgOddsW <- renderDT({
+    df <- assigned_data() %>% filter(Gender == "Female")
+    df$Display_Odds <- df[[display_odds_col()]]
+    avg <- df %>%
+      group_by(Previous_Applications) %>%
+      summarise(
+        N = n(),
+        `Avg Odds (%)` = round(mean(Display_Odds, na.rm = TRUE) * 100, 2),
+        `Min Odds (%)` = round(min(Display_Odds, na.rm = TRUE) * 100, 2),
+        `Max Odds (%)` = round(max(Display_Odds, na.rm = TRUE) * 100, 2),
+        .groups = "drop") %>%
+      rename(`Previous Applications` = Previous_Applications)
+    datatable(avg, options = list(dom = "t"), rownames = FALSE)
+  }) 
+  output$avgOddsM <- renderDT({
+    df <- assigned_data() %>% filter(Gender == "Male")
+    df$Display_Odds <- df[[display_odds_col()]]
+    avg <- df %>%
+      group_by(Previous_Applications) %>%
+      summarise(
+        N = n(),
+        `Avg Odds (%)` = round(mean(Display_Odds, na.rm = TRUE) * 100, 2),
+        `Min Odds (%)` = round(min(Display_Odds, na.rm = TRUE) * 100, 2),
+        `Max Odds (%)` = round(max(Display_Odds, na.rm = TRUE) * 100, 2),
+        .groups = "drop") %>%
+      rename(`Previous Applications` = Previous_Applications)
+    datatable(avg, options = list(dom = "t"), rownames = FALSE)
+  }) 
+  
   output$oddsW <- renderDT({
     df <- assigned_data() %>% filter(Gender == "Female")
+    df$Display_Odds <- df[[display_odds_col()]]
     grouped <- df %>%
-      group_by(tickets, Previous_Applications, Previous_Finishes, SelectionStatus, Odds) %>%
-      summarise(N = n(), .groups = "drop")
-    grouped <- grouped %>%
+      group_by(tickets, Previous_Applications, Previous_Finishes, SelectionStatus, Display_Odds) %>%
+      summarise(N = n(), .groups = "drop") %>%
       mutate(
-        # Always two decimals, as character, for display and CSV/export
         tickets_char = formatC(round(tickets,2), format="f", digits=2),
-        odds_percent = formatC(round(100 * Odds,2), format="f", digits=2)
+        odds_percent = formatC(round(100 * Display_Odds,2), format="f", digits=2)
       ) %>%
       arrange(as.numeric(tickets_char)) %>%
-      select(
-        "Tickets" = tickets_char,
-        "N" = N,
-        "Previous Applications" = Previous_Applications,
-        "Previous Finishes" = Previous_Finishes,
-        "Selection Status" = SelectionStatus,
-        "Odds (%)" = odds_percent
-      )
-    datatable(grouped,
+      select("Tickets" = tickets_char, "N" = N,
+             "Previous Apps" = Previous_Applications,
+             "Previous Fins" = Previous_Finishes,
+             "Selection Status" = SelectionStatus,
+             "Odds (%)" = odds_percent)
+    
+    datatable(grouped, 
               options = list(
-                pageLength = 20, 
                 dom = "tip", 
-                columnDefs = list(
-                  list(className = 'dt-center', targets = "_all"),
-                  list(width = '65px', targets = 0:4)
+                pageLength = 20,
+                # Add styling to make font smaller
+                initComplete = JS(
+                  "function(settings, json) {",
+                  "$(this.api().table().header()).css({'font-size': '12px'});",
+                  "$(this.api().table().body()).css({'font-size': '11px'});",
+                  "}"
                 )
-              ),
-              rownames = FALSE,
-              class = "compact dt-compact-custom odds-table-compact"
-    )
+              ), 
+              rownames = FALSE)
   })
   
   output$oddsM <- renderDT({
     df <- assigned_data() %>% filter(Gender == "Male")
+    df$Display_Odds <- df[[display_odds_col()]]
     grouped <- df %>%
-      group_by(tickets, Previous_Applications, Previous_Finishes, SelectionStatus, Odds) %>%
-      summarise(N = n(), .groups = "drop")
-    grouped <- grouped %>%
+      group_by(tickets, Previous_Applications, Previous_Finishes, SelectionStatus, Display_Odds) %>%
+      summarise(N = n(), .groups = "drop") %>%
       mutate(
         tickets_char = formatC(round(tickets,2), format="f", digits=2),
-        odds_percent = formatC(round(100 * Odds,2), format="f", digits=2)
+        odds_percent = formatC(round(100 * Display_Odds,2), format="f", digits=2)
       ) %>%
       arrange(as.numeric(tickets_char)) %>%
-      select(
-        "Tickets" = tickets_char,
-        "N" = N,
-        "Previous Applications" = Previous_Applications,
-        "Previous Finishes" = Previous_Finishes,
-        "Selection Status" = SelectionStatus,
-        "Odds (%)" = odds_percent
-      )
-    datatable(grouped,
+      select("Tickets" = tickets_char, "N" = N,
+             "Previous Apps" = Previous_Applications,
+             "Previous Fins" = Previous_Finishes,
+             "Selection Status" = SelectionStatus,
+             "Odds (%)" = odds_percent)
+    
+    datatable(grouped, 
               options = list(
-                pageLength = 20, 
                 dom = "tip", 
-                columnDefs = list(
-                  list(className = 'dt-center', targets = "_all"),
-                  list(width = '65px', targets = 0:4)
+                pageLength = 20,
+                # Add styling to make font smaller
+                initComplete = JS(
+                  "function(settings, json) {",
+                  "$(this.api().table().header()).css({'font-size': '12px'});",
+                  "$(this.api().table().body()).css({'font-size': '11px'});",
+                  "}"
                 )
-              ),
-              rownames = FALSE,
-              class = "compact dt-compact-custom odds-table-compact"
-    )
+              ), 
+              rownames = FALSE)
   })
   
-  # --- Average odds by applications, with min/max ---
-  output$avgOddsW <- renderDT({
-    df <- assigned_data() %>% filter(Gender == "Female")
-    avg <- df %>%
-      group_by(Previous_Applications) %>%
-      summarise(
-        N = n(),
-        `Avg Odds (%)` = round(mean(Odds, na.rm = TRUE) * 100, 2),
-        `Min Odds (%)` = round(min(Odds, na.rm = TRUE) * 100, 2),
-        `Max Odds (%)` = round(max(Odds, na.rm = TRUE) * 100, 2),
-        .groups = "drop") %>%
-      rename(`Previous Applications` = Previous_Applications)
-    datatable(avg, options = list(dom = "t"), rownames = FALSE)
-  })
-  
-  output$avgOddsM <- renderDT({
-    df <- assigned_data() %>% filter(Gender == "Male")
-    avg <- df %>%
-      group_by(Previous_Applications) %>%
-      summarise(
-        N = n(),
-        `Avg Odds (%)` = round(mean(Odds, na.rm = TRUE) * 100, 2),
-        `Min Odds (%)` = round(min(Odds, na.rm = TRUE) * 100, 2),
-        `Max Odds (%)` = round(max(Odds, na.rm = TRUE) * 100, 2),
-        .groups = "drop") %>%
-      rename(`Previous Applications` = Previous_Applications)
-    datatable(avg, options = list(dom = "t"), rownames = FALSE)
-  })
-  
-  # --- Ticket value vs odds scatter plot ---
-  output$oddsDistW <- renderPlot({
-    df <- assigned_data() %>% filter(Gender == "Female")
-    ggplot(df, aes(x = tickets, y = Odds, color = SelectionStatus)) +
-      geom_jitter(width = 0.1, height = 0) +
-      scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0,1)) +
-      labs(x = "Tickets", y = "Odds", title = "Women: Ticket vs Odds") +
-      theme_minimal()
-  })
-  output$oddsDistM <- renderPlot({
-    df <- assigned_data() %>% filter(Gender == "Male")
-    ggplot(df, aes(x = tickets, y = Odds, color = SelectionStatus)) +
-      geom_jitter(width = 0.1, height = 0) +
-      scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0,1)) +
-      labs(x = "Tickets", y = "Odds", title = "Men: Ticket vs Odds") +
-      theme_minimal()
-  })
   
   # --- Expected picks by previous applications (bar) ---
   output$histW <- renderPlot({
     df <- assigned_data() %>% filter(Gender == "Female")
-    p <- df %>%
-      group_by(Previous_Applications) %>%
-      summarise(ExpectedPicks = sum(Odds, na.rm = TRUE))
-    ggplot(p, aes(x = factor(Previous_Applications), y = ExpectedPicks)) +
+    df$Display_Odds <- df[[display_odds_col()]]
+    df <- df %>% group_by(Previous_Applications) %>% summarise(ExpectedPicks = sum(Display_Odds, na.rm = TRUE))
+    ggplot(df, aes(x = factor(Previous_Applications), y = ExpectedPicks)) +
       geom_col(fill = "#B7822E") +
       labs(x = "Previous Applications", y = "Expected # Picked") +
       theme_minimal()
   })
+  
   output$histM <- renderPlot({
     df <- assigned_data() %>% filter(Gender == "Male")
-    p <- df %>%
-      group_by(Previous_Applications) %>%
-      summarise(ExpectedPicks = sum(Odds, na.rm = TRUE))
-    ggplot(p, aes(x = factor(Previous_Applications), y = ExpectedPicks)) +
+    df$Display_Odds <- df[[display_odds_col()]]
+    df <- df %>% group_by(Previous_Applications) %>% summarise(ExpectedPicks = sum(Display_Odds, na.rm = TRUE))
+    ggplot(df, aes(x = factor(Previous_Applications), y = ExpectedPicks)) +
       geom_col(fill = "#2270AE") +
       labs(x = "Previous Applications", y = "Expected # Picked") +
       theme_minimal()
   })
   
+  
   # --- Expected picks by previous finishes (bar) ---
   output$finHistW <- renderPlot({
     df <- assigned_data() %>% filter(Gender == "Female")
-    p <- df %>%
-      group_by(Previous_Finishes) %>%
-      summarise(ExpectedPicks = sum(Odds, na.rm = TRUE))
-    ggplot(p, aes(x = factor(Previous_Finishes), y = ExpectedPicks)) +
+    df$Display_Odds <- df[[display_odds_col()]]
+    df <- df %>% group_by(Previous_Finishes) %>% summarise(ExpectedPicks = sum(Display_Odds, na.rm = TRUE))
+    ggplot(df, aes(x = factor(Previous_Finishes), y = ExpectedPicks)) +
       geom_col(fill = "#E1B882") +
       labs(x = "Previous Finishes", y = "Expected # Picked") +
       theme_minimal()
   })
+  
   output$finHistM <- renderPlot({
     df <- assigned_data() %>% filter(Gender == "Male")
-    p <- df %>%
-      group_by(Previous_Finishes) %>%
-      summarise(ExpectedPicks = sum(Odds, na.rm = TRUE))
-    ggplot(p, aes(x = factor(Previous_Finishes), y = ExpectedPicks)) +
+    df$Display_Odds <- df[[display_odds_col()]]
+    df <- df %>% group_by(Previous_Finishes) %>% summarise(ExpectedPicks = sum(Display_Odds, na.rm = TRUE))
+    ggplot(df, aes(x = factor(Previous_Finishes), y = ExpectedPicks)) +
       geom_col(fill = "#9EC6F5") +
       labs(x = "Previous Finishes", y = "Expected # Picked") +
+      theme_minimal()
+  })
+  
+  output$oddsDistW <- renderPlot({
+    df <- assigned_data() %>% filter(Gender == "Female")
+    ggplot() +
+      geom_jitter(data = df, aes(x = tickets, y = Odds_Exact, color = "Direct"), width = 0.1, height = 0) +
+      geom_jitter(data = df, aes(x = tickets, y = Odds_MC, color = "Monte Carlo"), width = 0.1, height = 0) +
+      scale_color_manual(values = c("Direct" = "#2270AE", "Monte Carlo" = "#B7822E")) +
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0,1)) +
+      labs(x = "Tickets", y = "Odds", color = "Method", title = "Women: Ticket vs Odds (Both Methods)") +
+      theme_minimal()
+  })
+  
+  output$oddsDistM <- renderPlot({
+    df <- assigned_data() %>% filter(Gender == "Male")
+    ggplot() +
+      geom_jitter(data = df, aes(x = tickets, y = Odds_Exact, color = "Direct"), width = 0.1, height = 0) +
+      geom_jitter(data = df, aes(x = tickets, y = Odds_MC, color = "Monte Carlo"), width = 0.1, height = 0) +
+      scale_color_manual(values = c("Direct" = "#2270AE", "Monte Carlo" = "#B7822E")) +
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0,1)) +
+      labs(x = "Tickets", y = "Odds", color = "Method", title = "Men: Ticket vs Odds (Both Methods)") +
       theme_minimal()
   })
 }
