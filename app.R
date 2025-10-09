@@ -41,7 +41,7 @@ simulate_draw <- function(tickets, n_picks) {
 }
 
 # Function: Monte Carlo odds over many simulations
-simulate_odds <- function(tickets, n_picks, n_sim = 10000) {
+simulate_odds <- function(tickets, n_picks, n_sim = 100000) {
   counts <- numeric(length(tickets))
   for (i in seq_len(n_sim)) {
     picks <- simulate_draw(tickets, n_picks)
@@ -105,7 +105,24 @@ ui <- fluidPage(
                                   "Auto-select 3+ year applicants regardless of finishes" = "all_finishes"),
                    selected = "none"),
       checkboxInput("no_firsttime_zero", "Disallow first-time applicants with no finishes", FALSE),
+      
+      br(),  # space below the checkbox
+      
+      checkboxInput("no_firsttime_zero", "Disallow first-time applicants with no finishes", FALSE),
+      br(),  # space below the checkbox
+      checkboxGroupInput(
+        inputId = "odds_toggles",
+        label   = "Odds adjustments (select any):",
+        choices = c(
+          "Drop trailwork (keep volunteering)"     = "drop_trail",
+          "Drop log and +1 (use integer points)"   = "no_log"
+        ),
+        selected = character(0)
+      ),
       hr(),
+      
+      
+      
       radioButtons("odds_method", "Odds Calculation Method:",
                    choices = c("Deterministic (Fast)" = "deterministic",
                                "Monte Carlo (N = 1,000, Slow)" = "mc1000",
@@ -303,7 +320,7 @@ server <- function(input, output, session) {
     run_mc <- input$odds_method %in% c("mc1000", "mc10000")
     n_sim <- switch(input$odds_method,
                     "mc1000" = 1000,
-                    "mc10000" = 10000,
+                    "mc10000" = 100000,
                     0)
     
     for (gender in c("Female", "Male")) {
@@ -438,6 +455,24 @@ server <- function(input, output, session) {
               ), 
               rownames = FALSE)
   })
+  
+  # --- Fractions of applicants using points (selected year) ---
+  output$statsTitle <- renderText({ "Observed Volunteer/Trailwork Fraction" })
+  
+  output$volunteerStats <- renderText({
+    df <- base_data()
+    if (is.null(df) || nrow(df) == 0) return("Volunteer points used: n/a")
+    frac <- mean(ifelse(is.na(df$Volunteer_Points), 0, df$Volunteer_Points) > 0)
+    sprintf("Volunteer points used: %.1f%%", frac * 100)
+  })
+  
+  output$trailworkStats <- renderText({
+    df <- base_data()
+    if (is.null(df) || nrow(df) == 0) return("Extra trailwork used: n/a")
+    frac <- mean(ifelse(is.na(df$Extra_Trailwork_Points), 0, df$Extra_Trailwork_Points) > 0)
+    sprintf("Extra trailwork used: %.1f%%", frac * 100)
+  })
+  
   
   
   # --- Expected picks by previous applications (bar) ---
