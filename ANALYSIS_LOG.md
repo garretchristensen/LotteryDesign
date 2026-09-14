@@ -171,6 +171,31 @@ among the rest with the current formula).
   around needs a cap on inflow (qualifier / applicant cap), not a guarantee on
   outflow.
 
+### Revision: dormant applicants (attempts need not be consecutive)
+
+Garret confirmed prior attempts count even after skipping years. Data check:
+71 of 348 men at n>=1 in 2026 (20%) skipped 2025. From dormancy ~18% return
+the next year, ~11% the year after. Added to the sim: losers who don't
+re-apply go dormant with n+1 retained and return w.p. `comeback`
+(default c(.18, .11, .08)); `load_dormant_2026()` seeds the real reservoir
+(559 men: 355 dormant 1 yr, 204 dormant 2 yrs; 122 already at n>=2).
+**The tables above are superseded by these** (all men, 25% growth):
+
+Persistent rookie, base 4: first applies 2027 → 2% / 6% / 16% / 35% / 64%
+by years 1–5 (was 24% / 89% at yr 3 / 5). First applies 2030 → 0 / 1 / 4 / 9 / 20%.
+Current formula, 2027 cohort → 5 / 11 / 18 / 28 / 39%.
+Men's pool ≈ 1,160 (2027) → 1,980 (2029) → 2,550 (2030); n>=2 backlog > 500 by 2030.
+
+Automatic entry, "4th try" (n>=3), share of 96 men's slots:
+- today's retention: 63% (2027), 72% (2028), **~110% (2029)**, ~160% (2030) — nearly
+  independent of growth rate in the first 3 years.
+- guarantee-aware (85% re-apply when one short): 85% (2027), ~100% (2028), ~165% (2029).
+- "3rd try": 170%+ from 2027, never recovers.
+
+New lever for Caleb: expire prior attempts after a gap (e.g. skip two years →
+reset). The dormant reservoir is the largest source of creep besides rookie
+growth and it never decays under current rules.
+
 ### Open items
 
 - Confirm with Caleb: is 125/pool the new race size or an over-draw?

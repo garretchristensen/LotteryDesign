@@ -20,6 +20,7 @@ for the full narrative, findings, and open items. **Append a dated entry to
 
 - Two pools, `Lottery Pool` = `M` / `F`. Non-binary applicants choose a pool.
 - 2026 formula: `Tickets = 2^(n + k + 1) + 2·ln(v + t + 1)` — n = previous applications since last reset, k = weighted finishes (0/.5/1/1.5, back to .5 at 4+), v = volunteer points, t = extra trailwork points.
+- `n` counts prior unsuccessful applications since the last reset (running the race resets it). **Attempts need not be consecutive** — skip a year, come back, `n` is intact. ~20% of returning men skipped the prior year.
 - Draw is weighted, without replacement, per pool. 2026 drew 125 per pool including pre-selects (29 M / 11 F) → 96 M / 114 F lottery picks, plus 125-deep waitlists.
 - `Status` in 2026 data: `drawn`, `waitlist`, `lost`, `preselect`, `denied`.
 - Men's pool ≈ 10% odds and growing ~25–30%/yr; women's ≈ 37%. The formula can only redistribute odds, not shorten the queue — keep that framing.

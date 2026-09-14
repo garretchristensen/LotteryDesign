@@ -66,6 +66,33 @@ load_pool_2026 <- function(path = "2026HLdata.csv") {
               drawn = Status == "drawn")
 }
 
+# Applicants already dormant going into 2027: 2025 losers who did not apply in
+# 2026 (dormant 1 yr) and 2024 losers absent from both 2025 and 2026 (2 yrs).
+# Matched by name; they carry n + 1. Service points are unknown for 2024 rows
+# (different columns) and set to 0.
+load_dormant_2026 <- function() {
+  clean <- function(x) { x <- iconv(x, "", "ASCII", sub = ""); tolower(gsub("[^a-z ]", "", gsub("\\s+", " ", trimws(tolower(x))))) }
+  d26 <- read.csv("2026HLdata.csv", check.names = FALSE) %>% filter(Status != "denied") %>%
+    mutate(name = clean(paste(First_Name, Last_Name)))
+  p25 <- read.csv("2025HLdata.csv", check.names = FALSE)
+  p25 <- data.frame(name = clean(paste(p25$First_Name, p25$Last_Name)), pool = trimws(p25$`Lottery Pool`),
+                    n = p25$Previous_Applications, k = p25$`Finish Multiplier`,
+                    s = p25$Volunteer_Points + p25$Extra_Trailwork_Points, stringsAsFactors = FALSE)
+  p24 <- read.csv("2024HLdata.csv", check.names = FALSE)
+  p24 <- data.frame(name = clean(paste(p24$First_Name, p24$Last_Name)), pool = trimws(p24$`Lottery Pool`),
+                    n = p24$Previous_Applications, k = pmin(p24$Previous_Finishes * 0.5, 1.5), s = 0, stringsAsFactors = FALSE)
+  # remove those who got in (approximate: not in later years AND not matched is treated as dormant;
+  # winners are removed by expected odds — downweight by sampling)
+  d1 <- p25 %>% filter(!(name %in% d26$name)) %>% mutate(yrs = 1L)
+  d2 <- p24 %>% filter(!(name %in% p25$name), !(name %in% d26$name)) %>% mutate(yrs = 2L)
+  # ~13% of 2025 men and ~43% of women got in; the rest of the absentees are losers.
+  # Drop winners at those rates so the dormant pool only has losers.
+  set.seed(2026)
+  keep <- function(d, pM, pF) d[runif(nrow(d)) > ifelse(d$pool == "M", pM, pF), ]
+  bind_rows(keep(d1, 0.13, 0.42), keep(d2, 0.17, 0.48)) %>%
+    filter(pool %in% c("M", "F")) %>% mutate(n = n + 1) %>% select(pool, n, k, s, yrs)
+}
+
 ## ---------------------------------------------------------------------------
 ## Simulation
 ## ---------------------------------------------------------------------------
@@ -80,11 +107,17 @@ load_pool_2026 <- function(path = "2026HLdata.csv") {
 #              apps re-applies next year); last value is reused beyond its length
 # service_mode "latest" = s stays at the applicant's initial value each year
 #              "cumulative" = s accumulates (initial value added every year)
+# dormant0     optional data frame (pool, n, k, s, yrs) of applicants already
+#              dormant going into 2027 — see load_dormant_2026()
+# comeback     P(a dormant applicant — one who lost and did not re-apply — comes
+#              back) by years dormant; attempts are not required to be
+#              consecutive, so they return with n intact. c() = never.
 # auto_at      applicants with n >= auto_at are placed automatically before the
 #              draw (Inf = no such rule). If they outnumber the slots, they all
 #              get in anyway (oversubscribed) and nobody else is drawn.
 # reps         Monte Carlo replications
 simulate_lottery <- function(pool0, formula, years = 8, auto_at = Inf,
+                             comeback = c(0.18, 0.11, 0.08), dormant0 = NULL,
                              picks = c(M = 96, F = 114),
                              growth = 0.25,
                              retention = list(M = c(0.45, 0.55, 0.55, 0.55),
@@ -98,15 +131,28 @@ simulate_lottery <- function(pool0, formula, years = 8, auto_at = Inf,
     rM <- retention$M; rF <- retention$F
     ifelse(pl == "M", rM[pmin(n + 1, length(rM))], rF[pmin(n + 1, length(rF))])
   }
-  advance_losers <- function(pool) {            # after a draw: winners leave, losers re-apply w.p. retention
-    losers <- pool[!pool$drawn, ]
-    stay <- runif(nrow(losers)) < ret_p(losers$pool, losers$n)
-    losers[stay, ] %>% mutate(n = n + 1)
+  # After a draw: winners leave; losers re-apply next year w.p. retention,
+  # otherwise go dormant (n + 1 retained). Dormant applicants return w.p.
+  # comeback[years dormant]. Returns list(active, dormant).
+  advance_losers <- function(pool, dormant) {
+    losers <- pool[!pool$drawn, ] %>% mutate(n = n + 1)
+    stay <- runif(nrow(losers)) < ret_p(losers$pool, losers$n - 1)
+    new_dormant <- losers[!stay, ] %>% mutate(yrs = 0L)
+    if (nrow(dormant) > 0) {
+      dormant$yrs <- dormant$yrs + 1L
+      back <- runif(nrow(dormant)) < comeback[pmin(dormant$yrs, length(comeback))]
+      if (length(comeback) == 0) back <- rep(FALSE, nrow(dormant))
+      returned <- dormant[back, ] %>% select(-yrs); dormant <- dormant[!back, ]
+    } else returned <- losers[0, ]
+    list(active = bind_rows(losers[stay, ], returned), dormant = bind_rows(dormant, new_dormant))
   }
 
   year_rows <- list(); cohort_rows <- list()
   for (rep in seq_len(reps)) {
-    pool <- pool0 %>% mutate(s0 = s, cohort = 2026 - n, won = NA_integer_) %>% advance_losers()
+    d0 <- if (is.null(dormant0)) pool0[0, ] %>% mutate(yrs = 0L) else dormant0
+    d0 <- d0 %>% mutate(drawn = FALSE, s0 = s, cohort = 2026 - n - yrs, won = NA_integer_)
+    st <- pool0 %>% mutate(s0 = s, cohort = 2026 - n, won = NA_integer_) %>% advance_losers(dormant = d0)
+    pool <- st$active; dormant <- st$dormant
     n_rookies <- table(rookies0$pool)
     for (y in seq_len(years)) {
       yr <- start_year + y - 1
@@ -139,8 +185,8 @@ simulate_lottery <- function(pool0, formula, years = 8, auto_at = Inf,
       pool$won[pool$drawn] <- yr
       cohort_rows[[length(cohort_rows) + 1]] <- pool %>%
         filter(drawn) %>% count(pool, cohort, name = "won") %>% mutate(rep = rep, year = yr)
-      # --- winners leave; losers re-apply with prob retention(n) ---
-      pool <- advance_losers(pool)
+      # --- winners leave; losers re-apply, go dormant, or return from dormancy ---
+      st <- advance_losers(pool, dormant); pool <- st$active; dormant <- st$dormant
       if (service_mode == "cumulative") pool$s <- pool$s + pool$s0
     }
   }
@@ -199,15 +245,16 @@ realised_path <- function(sim, cohort, pl = "M") {
 ## ---------------------------------------------------------------------------
 if (sys.nframe() == 0) {
   dir.create("sim_results", showWarnings = FALSE)
-  pool0 <- load_pool_2026()
+  pool0 <- load_pool_2026(); dormant0 <- load_dormant_2026()
   cat("Starting pool (2026 lottery entrants):\n"); print(table(pool0$pool, pool0$n))
+  cat("Dormant going into 2027 (pool x years dormant):\n"); print(table(dormant0$pool, dormant0$yrs))
 
   scenarios <- expand.grid(formula = names(formulas), growth = c(0.10, 0.25, 0.30),
                            stringsAsFactors = FALSE)
   all_years <- list(); all_paths <- list()
   for (i in seq_len(nrow(scenarios))) {
     f <- scenarios$formula[i]; g <- scenarios$growth[i]
-    sim <- simulate_lottery(pool0, formulas[[f]], growth = g, years = 8, reps = 30)
+    sim <- simulate_lottery(pool0, formulas[[f]], growth = g, years = 8, reps = 30, dormant0 = dormant0)
     all_years[[i]] <- summarise_years(sim, "M") %>% mutate(formula = f, growth = g)
     for (co in c(2027, 2030)) {
       all_paths[[length(all_paths) + 1]] <- persistent_path(sim, co, "M") %>%
