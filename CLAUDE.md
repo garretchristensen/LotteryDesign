@@ -11,6 +11,7 @@ for the full narrative, findings, and open items. **Append a dated entry to
 
 - `app.R` — the Shiny app (deployed to shinyapps.io as `garretchristensen/LotteryDesign`, config in `rsconnect/`). `intro.md` and `www/` are its static content.
 - `cohort_sim.R` — multi-year cohort simulation of the lottery (`Rscript cohort_sim.R`, ~3 min, writes `sim_results/`). Needs only `dplyr` and `tidyr`; plots are base graphics on purpose. `source()` it to use the functions interactively.
+- `lottery_panel.csv` — **longitudinal panel 2020–2026 keyed by `runner_id`** from the site APIs: status, position, tickets, odds, whether they ran, panel-derived prior apps. Use this (not name matching) for retention / dormancy / winners. Rebuild notes in `ANALYSIS_LOG.md`.
 - `20XXHLdata.csv` — applicant pools by year (2022–2026 tracked). Column names drift across years; 2026 is the cleanest.
 - `2026HLdata.csv` — built from the admin export `applications-2026-high-lonesome-100-5.csv` joined by `runner_id` to the public entrants API (see log). Includes draw outcomes.
 - `prediction.ipynb` — Python notebook forecasting applicant growth (random forest etc.). `synthetic_202X_predictions.csv`, `longitudinal_data.csv` come from it.
@@ -24,7 +25,8 @@ for the full narrative, findings, and open items. **Append a dated entry to
 - Draw is weighted, without replacement, per pool. 2026 drew 125 per pool including pre-selects (29 M / 11 F) → 96 M / 114 F lottery picks, plus 125-deep waitlists.
 - `Status` in 2026 data: `drawn`, `waitlist`, `lost`, `preselect`, `denied`.
 - Men's pool ≈ 10% odds and growing ~25–30%/yr; women's ≈ 37%. The formula can only redistribute odds, not shorten the queue — keep that framing.
-- Lottery site: `https://lottery.highlonesome100.com`. Public per-entrant data (pool, tickets, odds) via `/lottery/lottery-api/listEntrants?lottery_id=<slug>`. Gender identity is private; only chosen pool is public.
+- Lottery site: `https://lottery.highlonesome100.com`. Public APIs: `/lottery/lottery-api/listLotteries`, `listEntrants?lottery_id=<year>-high-lonesome-100`, `getOfficialDrawing?lottery_id=…&withRunners=true`. The last one includes runner profile fields the UI marks private — keep only id/pool/tickets/odds/position/results in anything saved to the repo.
+- Waitlist call-ups are real throughput (~20 M / ~28 F run off the waitlist each year); ~20% of drawn runners don't run. Effective picks ≈ 118 M / 142 F.
 
 ## Odds math
 

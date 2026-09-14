@@ -66,31 +66,18 @@ load_pool_2026 <- function(path = "2026HLdata.csv") {
               drawn = Status == "drawn")
 }
 
-# Applicants already dormant going into 2027: 2025 losers who did not apply in
-# 2026 (dormant 1 yr) and 2024 losers absent from both 2025 and 2026 (2 yrs).
-# Matched by name; they carry n + 1. Service points are unknown for 2024 rows
-# (different columns) and set to 0.
-load_dormant_2026 <- function() {
-  clean <- function(x) { x <- iconv(x, "", "ASCII", sub = ""); tolower(gsub("[^a-z ]", "", gsub("\\s+", " ", trimws(tolower(x))))) }
-  d26 <- read.csv("2026HLdata.csv", check.names = FALSE) %>% filter(Status != "denied") %>%
-    mutate(name = clean(paste(First_Name, Last_Name)))
-  p25 <- read.csv("2025HLdata.csv", check.names = FALSE)
-  p25 <- data.frame(name = clean(paste(p25$First_Name, p25$Last_Name)), pool = trimws(p25$`Lottery Pool`),
-                    n = p25$Previous_Applications, k = p25$`Finish Multiplier`,
-                    s = p25$Volunteer_Points + p25$Extra_Trailwork_Points, stringsAsFactors = FALSE)
-  p24 <- read.csv("2024HLdata.csv", check.names = FALSE)
-  p24 <- data.frame(name = clean(paste(p24$First_Name, p24$Last_Name)), pool = trimws(p24$`Lottery Pool`),
-                    n = p24$Previous_Applications, k = pmin(p24$Previous_Finishes * 0.5, 1.5), s = 0, stringsAsFactors = FALSE)
-  # remove those who got in (approximate: not in later years AND not matched is treated as dormant;
-  # winners are removed by expected odds — downweight by sampling)
-  d1 <- p25 %>% filter(!(name %in% d26$name)) %>% mutate(yrs = 1L)
-  d2 <- p24 %>% filter(!(name %in% p25$name), !(name %in% d26$name)) %>% mutate(yrs = 2L)
-  # ~13% of 2025 men and ~43% of women got in; the rest of the absentees are losers.
-  # Drop winners at those rates so the dormant pool only has losers.
-  set.seed(2026)
-  keep <- function(d, pM, pF) d[runif(nrow(d)) > ifelse(d$pool == "M", pM, pF), ]
-  bind_rows(keep(d1, 0.13, 0.42), keep(d2, 0.17, 0.48)) %>%
-    filter(pool %in% c("M", "F")) %>% mutate(n = n + 1) %>% select(pool, n, k, s, yrs)
+# Applicants already dormant going into 2027, from the longitudinal panel
+# (lottery_panel.csv, built from the site's entrants + official-drawing APIs):
+# everyone whose last appearance (2022-2025) was a loss and who did not apply
+# in 2026. They carry n = prior apps + 1. k approximated from prior wins;
+# service points unknown (0).
+load_dormant_2026 <- function(path = "lottery_panel.csv") {
+  read.csv(path) %>%
+    mutate(got_in = status %in% c("drawn", "preselect") | ran) %>%
+    group_by(runner_id) %>% slice_max(year, n = 1, with_ties = FALSE) %>% ungroup() %>%
+    filter(!got_in, year >= 2022, year < 2026, pool %in% c("M", "F")) %>%
+    transmute(pool, n = panel_prior_apps + 1, k = pmin(0.5 * panel_prior_wins, 1.5), s = 0,
+              yrs = as.integer(2026 - year))
 }
 
 ## ---------------------------------------------------------------------------
@@ -101,10 +88,13 @@ load_dormant_2026 <- function() {
 #              at n+1 in 2027, and its rookies seed the bootstrap for new rookies.
 # formula      function(n, k, s) -> tickets
 # years        number of lottery years to simulate (first = 2027)
-# picks        lottery picks per pool (after pre-selections)
+# picks        effective lottery picks per pool: drawn (96 M / 114 F in 2026)
+#              plus typical waitlist call-ups who run (~22 M / ~28 F) — the
+#              waitlist is the continuation of the weighted draw
 # growth       annual growth in the number of new rookies
 # retention    list(M = c(r0, r1, r2, ...), F = ...): P(a loser with n prior
-#              apps re-applies next year); last value is reused beyond its length
+#              apps re-applies next year); last value is reused beyond its length.
+#              Defaults are exact 2022-2025 rates from lottery_panel.csv.
 # service_mode "latest" = s stays at the applicant's initial value each year
 #              "cumulative" = s accumulates (initial value added every year)
 # dormant0     optional data frame (pool, n, k, s, yrs) of applicants already
@@ -117,11 +107,11 @@ load_dormant_2026 <- function() {
 #              get in anyway (oversubscribed) and nobody else is drawn.
 # reps         Monte Carlo replications
 simulate_lottery <- function(pool0, formula, years = 8, auto_at = Inf,
-                             comeback = c(0.18, 0.11, 0.08), dormant0 = NULL,
-                             picks = c(M = 96, F = 114),
+                             comeback = c(0.22, 0.10, 0.05), dormant0 = NULL,
+                             picks = c(M = 118, F = 142),
                              growth = 0.25,
-                             retention = list(M = c(0.45, 0.55, 0.55, 0.55),
-                                              F = c(0.30, 0.35, 0.35, 0.35)),
+                             retention = list(M = c(0.42, 0.54, 0.57, 0.50),
+                                              F = c(0.34, 0.50, 0.50, 0.50)),
                              service_mode = c("latest", "cumulative"),
                              reps = 30, seed = 1, start_year = 2027) {
   service_mode <- match.arg(service_mode)

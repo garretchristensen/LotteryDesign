@@ -196,6 +196,49 @@ New lever for Caleb: expire prior attempts after a gap (e.g. skip two years →
 reset). The dormant reservoir is the largest source of creep besides rookie
 growth and it never decays under current rules.
 
+### Revision 2: exact longitudinal panel from the site (`lottery_panel.csv`)
+
+The site publishes every year's entrants and official drawing:
+`listEntrants?lottery_id=<year>-high-lonesome-100` and
+`getOfficialDrawing?lottery_id=…&withRunners=true`. Built `lottery_panel.csv`
+(4,782 applications, 2,978 runners, 2020–2026) keyed by `runner_id`, with
+status (drawn / waitlist / lost / preselect), position, tickets, odds, whether
+the person actually ran that year (from HL100 results), and panel-derived
+prior apps (matches the system's `Previous_Applications` for 97% of 2026).
+Only non-sensitive fields kept. Note for Caleb / the developer: the
+`withRunners=true` endpoint returns runner profile fields the UI marks as
+private; those were not copied.
+
+Exact facts (2022–2025), now the sim defaults:
+- Picks per year (M/F): 2022 62/66, 2023 63/68, 2024 77/85, 2025 95/103, 2026 125/125 (incl. pre-selects).
+- Waitlist call-ups who ran: ~20 M / ~28 F per year. ~20–23% of drawn runners don't run.
+  Effective throughput ≈ drawn + call-ups → sim `picks = c(M = 118, F = 142)`.
+- Retention (loser re-applies next year): M .42/.54/.57 at n=0/1/2; F .34/.50. Stable by year.
+- Comeback from dormancy: M .22 (after 1 yr away), .10 (after 2); F .12.
+- Dormant reservoir into 2027: **717 men** (324/193/112/88 by years away; n = 1/2/3/4: 559/116/34/8), 164 women.
+- Past winners re-apply next year at 28%.
+- Panel-derived retention supersedes the name-matched numbers above.
+
+Results (men, supersede earlier tables):
+
+Persistent rookie, cumulative P(in), 25% growth:
+
+| | yr1 | yr2 | yr3 | yr4 | yr5 |
+|---|---|---|---|---|---|
+| current, first applies 2027 | 6% | 14% | 23% | 35% | 49% |
+| base 3, 2027 | 3% | 11% | 23% | 43% | 68% |
+| base 4, 2027 | 2% | 9% | 23% | 49% | 80% |
+| current, 2030 | 2% | 5% | 9% | 15% | 22% |
+| base 4, 2030 | 1% | 2% | 6% | 15% | 32% |
+
+Men's pool ≈ 1,130 (2027) → 1,940 (2029) → 2,490 (2030). Realised: ~23% of
+the 2027 rookie cohort runs within 8 years (any formula).
+
+Automatic entry "4th try" (n>=3), share of 118 effective men's slots:
+- today's retention: 49% (2027), 55% (2028), ~80% (2029), **~120% (2030)**, ~165% (2031).
+- guarantee-aware (85%): 67% (2027), 75% (2028), **~115% (2029)**, ~175% (2030).
+- "3rd try": ~138% from 2027 — infeasible.
+
 ### Open items
 
 - Confirm with Caleb: is 125/pool the new race size or an over-draw?
