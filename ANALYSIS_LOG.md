@@ -6,6 +6,30 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ## 2026-09-14 — 2027 lottery redesign: data, odds bug, cohort simulation
 
+### Bottom line (as of end of day)
+
+- **Data:** `lottery_panel.csv` is the authoritative source — every application
+  2020–2026 by `runner_id` with outcome and whether they ran, pulled from the
+  lottery site's public APIs. `2026HLdata.csv` is the 2026 pool in app format.
+- **Odds bug:** `app.R`'s "exact" odds double-counted survival; fixed. Sum of
+  odds must equal picks — use that check.
+- **The formula can't shorten the queue.** ~118 men/yr get in (96 drawn + ~22
+  off the waitlist). A steeper base (3 or 4) makes the wait orderly, not
+  shorter. Base 4 gets a persistent 2027 rookie to 23% by year 3, 80% by
+  year 5; for a 2030 rookie, 6% and 32%. Caleb's `4^n + n(k+v+t)` is a no-op
+  vs `4^(n+k)` — put service and finishes in the exponent with caps instead.
+- **Automatic entry on the 4th try** is ~50% of men's slots in 2027, ~80% in
+  2029, and over 100% by 2030 (2029 if people respond to the guarantee).
+  3rd-try is infeasible from day one.
+- **Overlooked levers:** the dormant reservoir (717 men with tickets intact,
+  never expires — consider attempt expiry after a gap); ~20% of drawn runners
+  don't start (interacts with refund policy); the real fix for creep is a cap
+  on inflow (qualifier / applicant cap).
+- **Site security:** `getOfficialDrawing?…&withRunners=true` is public and
+  returns runner profile fields the UI marks private (gender identity,
+  birthdate, pronouns, emails, photo URLs). Caleb should have the developer
+  restrict it. Nothing from those fields is in this repo.
+
 ### Context
 
 Caleb (RD) emailed a proposal for "lotto 2.0" for the 2027 race (lottery moving
