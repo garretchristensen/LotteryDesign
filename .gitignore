@@ -47,3 +47,8 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# raw lottery admin exports contain emails; commit the cleaned 20XXHLdata.csv instead
+applications-*.csv
+.~lock.*
+.ipynb_checkpoints/
