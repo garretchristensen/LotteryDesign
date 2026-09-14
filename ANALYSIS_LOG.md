@@ -150,6 +150,27 @@ Recommendation as of now: base 3 or 4 with finishes flattened (+0.5 for any
 finish) and service in the exponent with a cap; lead the reply with the
 throughput point and the 2030-cohort table.
 
+### Automatic-entry rule ("in on your 3rd/4th try")
+
+Added `auto_at` to `simulate_lottery()`: applicants with n >= auto_at are placed
+before the draw; if they outnumber the slots they all get in and nobody else is
+drawn. Results in `sim_results/men_auto_rule.csv` (men, 96 slots, lottery
+among the rest with the current formula).
+
+- **3rd try (n>=2):** infeasible immediately — ~150 automatics in 2027 vs 96
+  slots (131 men are already at n>=2 in 2026). Once oversubscribed, nobody else
+  is ever drawn and the tier snowballs (>500% of slots by 2034 at 25% growth).
+- **4th try (n>=3), today's retention:** ~55% of slots in 2027, crosses 75%
+  around 2030, exceeds 100% in 2031 (25–30% growth) or 2032 (10% growth).
+- **4th try, guarantee-aware retention** (losers one short of the guarantee
+  re-apply at 85% instead of 55%): ~80% of slots from 2027, >100% by 2029
+  regardless of growth.
+- Framing: an automatic rule is the exponent formula with base → infinity. It
+  gives clarity but no control once the tier overflows, and it strengthens the
+  retention feedback that lengthens the queue. A promise people can plan
+  around needs a cap on inflow (qualifier / applicant cap), not a guarantee on
+  outflow.
+
 ### Open items
 
 - Confirm with Caleb: is 125/pool the new race size or an over-draw?

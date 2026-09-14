@@ -80,8 +80,11 @@ load_pool_2026 <- function(path = "2026HLdata.csv") {
 #              apps re-applies next year); last value is reused beyond its length
 # service_mode "latest" = s stays at the applicant's initial value each year
 #              "cumulative" = s accumulates (initial value added every year)
+# auto_at      applicants with n >= auto_at are placed automatically before the
+#              draw (Inf = no such rule). If they outnumber the slots, they all
+#              get in anyway (oversubscribed) and nobody else is drawn.
 # reps         Monte Carlo replications
-simulate_lottery <- function(pool0, formula, years = 8,
+simulate_lottery <- function(pool0, formula, years = 8, auto_at = Inf,
                              picks = c(M = 96, F = 114),
                              growth = 0.25,
                              retention = list(M = c(0.45, 0.55, 0.55, 0.55),
@@ -119,14 +122,19 @@ simulate_lottery <- function(pool0, formula, years = 8,
       pool$odds <- NA_real_; pool$drawn <- FALSE
       for (pl in names(picks)) {
         idx <- which(pool$pool == pl)
-        pool$odds[idx] <- calc_odds(pool$tickets[idx], picks[[pl]])
-        pool$drawn[idx[draw_lottery(pool$tickets[idx], picks[[pl]])]] <- TRUE
+        auto <- idx[pool$n[idx] >= auto_at]; rest <- setdiff(idx, auto)
+        left <- max(picks[[pl]] - length(auto), 0)
+        pool$odds[auto] <- 1; pool$drawn[auto] <- TRUE
+        if (left > 0 && length(rest) > 0) {
+          pool$odds[rest] <- calc_odds(pool$tickets[rest], left)
+          pool$drawn[rest[draw_lottery(pool$tickets[rest], left)]] <- TRUE
+        } else pool$odds[rest] <- 0
       }
       # --- record year summary ---
       year_rows[[length(year_rows) + 1]] <- pool %>%
         group_by(pool, n) %>%
         summarise(N = n(), odds = mean(odds), slots = sum(drawn), .groups = "drop") %>%
-        mutate(rep = rep, year = yr)
+        mutate(rep = rep, year = yr, auto = n >= auto_at)
       # --- record cohort outcomes for winners ---
       pool$won[pool$drawn] <- yr
       cohort_rows[[length(cohort_rows) + 1]] <- pool %>%
@@ -153,13 +161,14 @@ simulate_lottery <- function(pool0, formula, years = 8,
 # Per-year table: pool size, backlog, odds by n, slots to rookies.
 summarise_years <- function(sim, pl = "M") {
   sim$yearly %>% filter(pool == pl) %>%
-    group_by(year, n) %>% summarise(N = mean(N), odds = mean(odds), slots = mean(slots), .groups = "drop") %>%
+    group_by(year, n, auto) %>% summarise(N = mean(N), odds = mean(odds), slots = mean(slots), .groups = "drop") %>%
     group_by(year) %>%
     summarise(pool_size = round(sum(N)),
               backlog_n2plus = round(sum(N[n >= 2])),
               odds_n0 = mean(odds[n == 0]), odds_n1 = mean(odds[n == 1]),
               odds_n2 = mean(odds[n == 2]), odds_n3 = mean(odds[n == 3]),
               rookie_slots = round(sum(slots[n == 0]), 1),
+              auto_eligible = round(sum(N[auto])), auto_slots = round(sum(slots[auto]), 1),
               .groups = "drop")
 }
 
