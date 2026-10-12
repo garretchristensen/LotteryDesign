@@ -50,5 +50,8 @@ rsconnect/
 
 # raw lottery admin exports contain emails; commit the cleaned 20XXHLdata.csv instead
 applications-*.csv
+
+# Caleb's personal emails - keep local, paraphrase lives in ANALYSIS_LOG.md
+caleb_email_*.md
 .~lock.*
 .ipynb_checkpoints/
