@@ -1,3 +1,12 @@
+## app.R -- High Lonesome 100 lottery design dashboard
+##
+## Lets Caleb (the RD) explore how different ticket-weighting formulas,
+## automatic-entry guarantee rules, and applicant-pool growth assumptions
+## would change who gets drawn into the race. See ANALYSIS_LOG.md for the
+## narrative write-up this dashboard is meant to make interactively
+## explorable, and CLAUDE.md for the domain facts (what each column means,
+## how the formula works today, etc).
+
 library(shiny)
 library(dplyr)
 library(tibble)
@@ -9,10 +18,21 @@ library(markdown)
 library(memoise)  # Only for Monte Carlo memoization
 library(digest)   # Only for Monte Carlo memoization
 
+# lottery_projection.R holds the multi-year projection engine (the "Run
+# multi-year projection" feature below) and the shared build_ticket_formula()
+# used both there and in this file's single-year odds tables, so the
+# formula-family selector drives both consistently instead of risking two
+# separate implementations drifting apart. See that file's header comment
+# for the model's assumptions and known simplifications.
+source("lottery_projection.R")
+
 # Function: Odds calculation (weighted draw without replacement).
 # Mean-field recursion: at each draw, P(i picked | i still in) ~= t_i / E[tickets remaining].
 # Sum of the returned odds equals n_picks. Matches Monte Carlo to ~0.003 on pools this size
 # and is the same algorithm the lottery site uses for its published odds.
+# (Verified against ANALYSIS_LOG.md's documented fix: this already uses
+# `survivors * (1 - tickets/total_tix)`, i.e. survival is NOT double-counted,
+# so the September 2026 bug described in the log is not present here.)
 calc_lottery_odds <- function(tickets, n_picks) {
   if (length(tickets) == 0 || n_picks <= 0) return(numeric(0))
   survivors <- rep(1, length(tickets))   # P(i not yet drawn)
@@ -31,8 +51,18 @@ simulate_draw <- function(tickets, n_picks) {
   remaining_tickets <- tickets
   for (i in seq_len(n_picks)) {
     if (length(remaining) == 0) break
-    probs <- remaining_tickets / sum(remaining_tickets)
-    pick <- sample(remaining, 1, prob = probs)
+    # When exactly one candidate is left, `remaining` is a length-1
+    # NUMERIC vector -- and R's sample(x, ...) treats a length-1 numeric x
+    # as "draw from 1:x", not "this one candidate", regardless of `prob`.
+    # That mismatch (prob has length 1; sample() expects length `x`) is
+    # exactly what throws "incorrect number of probabilities". Since
+    # there's only one candidate anyway, just take it directly.
+    if (length(remaining) == 1) {
+      pick <- remaining
+    } else {
+      probs <- remaining_tickets / sum(remaining_tickets)
+      pick <- sample(remaining, 1, prob = probs)
+    }
     selected <- c(selected, pick)
     remaining_tickets <- remaining_tickets[remaining != pick]
     remaining <- remaining[remaining != pick]
@@ -50,6 +80,52 @@ simulate_odds <- function(tickets, n_picks, n_sim = 100000) {
   counts / n_sim
 }
 
+# derive_k_from_finishes(): converts a RAW finish count into the lottery's
+# own "weighted finishes" (k) scale: 0 finishes = 0, 1 = .5, 2 = 1, 3 = 1.5,
+# 4+ drops back to .5 (per CLAUDE.md's documented mapping). Needed for the
+# 2023-2025 data files, which carry a raw Previous_Finishes count. The 2026
+# export does NOT carry a raw count at all -- it supplies k directly under
+# a column literally named Weighted_Finishes -- so for 2026 we use that
+# column as-is instead of calling this function. (Mixing those two up, by
+# always expecting a raw Previous_Finishes column, is what used to make
+# selecting "2026" in the Data Year dropdown crash the app outright.)
+derive_k_from_finishes <- function(previous_finishes) {
+  dplyr::case_when(
+    previous_finishes == 0 ~ 0,
+    previous_finishes == 1 ~ 0.5,
+    previous_finishes == 2 ~ 1,
+    previous_finishes == 3 ~ 1.5,
+    previous_finishes >= 4 ~ 0.5,
+    TRUE ~ 0
+  )
+}
+
+# apply_service_toggles(): the sidebar's "Drop trailwork (keep
+# volunteering)" checkbox only makes sense as a decision about which raw
+# point totals feed INTO the formula, so it's applied here, once, rather
+# than separately in every place that needs a service total.
+apply_service_toggles <- function(volunteer, trailwork, toggles) {
+  if ("drop_trail" %in% toggles) trailwork <- 0
+  volunteer + trailwork
+}
+
+# build_app_formula(): wraps lottery_projection.R's build_ticket_formula()
+# to also honour the "Drop log and +1 (use integer points)" checkbox, which
+# only makes sense for the "current" family (the other two families --
+# pure power, and Caleb's proposal -- don't use a log term at all, so the
+# toggle has no effect there; that's intentional, not a bug, and is called
+# out in the UI help text). Keeping this wrapper in app.R (rather than
+# lottery_projection.R) keeps the three canonical formulas in that file
+# exactly matching the ones documented in ANALYSIS_LOG.md, uncomplicated by
+# this app-only interactive toggle.
+build_app_formula <- function(family, exp_val, mult_val, toggles) {
+  if (identical(family, "current") && "no_log" %in% toggles) {
+    function(n, k, s) exp_val ^ (n + k + 1) + mult_val * s
+  } else {
+    build_ticket_formula(family, exp_val, mult_val)
+  }
+}
+
 default_nw <- 103
 default_nm <- 95
 
@@ -64,9 +140,9 @@ ui <- fluidPage(
       .odds-cols { display: flex; gap: 32px; }
       .odds-col { flex: 1 1 0; }
       .dt-compact-custom { font-size: 12px !important; }
-      .dataTables_wrapper .dataTables_length, 
-      .dataTables_wrapper .dataTables_filter, 
-      .dataTables_wrapper .dataTables_info, 
+      .dataTables_wrapper .dataTables_length,
+      .dataTables_wrapper .dataTables_filter,
+      .dataTables_wrapper .dataTables_info,
       .dataTables_wrapper .dataTables_paginate { font-size: 12px !important; }
       .collapsible-btn { margin-bottom: 10px; background: #e3e3e3; border: 1px solid #bbb; color: #333; font-weight: bold; }
       .collapsible-title { font-size: 1.15em; font-weight: bold; }
@@ -88,28 +164,53 @@ ui <- fluidPage(
     div(id = "introPanel", wellPanel(includeMarkdown("intro.md")))
   ),
   br(),
-  
+
   sidebarLayout(
     sidebarPanel(
       h4("Lottery Parameters"),
+      selectInput(
+        "formula_family", "Ticket formula:",
+        choices = c(
+          "Current system (power + log service credit)" = "current",
+          "Pure power, no service credit (e.g. 3^(n+k) or 4^(n+k))" = "pure_power",
+          "Caleb's proposal: base^n + n*(finishes + service)" = "caleb"
+        ),
+        selected = "current"
+      ),
       uiOutput("ticketFormula"),
       selectInput("year_select", "Data Year:", choices = c("2026", "2025", "2024", "2023"), selected = "2025"),
-      sliderInput("exp", "Exponent Base:", min = 2, max = 5, value = 2),
-      sliderInput("mult", "Multiplier:", min = 1, max = 10, value = 2),
+      sliderInput("exp", "Exponent / Base:", min = 2, max = 5, value = 2, step = 0.5),
+      # The multiplier only applies to the "current" family's log(service+1)
+      # term -- the other two families don't have a separately-weighted
+      # service term, so there's nothing for this slider to do there.
+      conditionalPanel(
+        condition = "input.formula_family == 'current'",
+        sliderInput("mult", "Service-Credit Multiplier:", min = 1, max = 10, value = 2)
+      ),
       numericInput("Nm", "Number of Men to Pick:", min = 0, max = 200, value = default_nm),
       numericInput("Nw", "Number of Women to Pick:", min = 0, max = 200, value = default_nw),
       h4("Discrete Rules"),
-      radioButtons("threeplus_rule", "3+ year applicant rule:",
-                   choices = list("None" = "none",
-                                  "Auto-select 3+ year applicants with no finishes" = "zero_finishes",
-                                  "Auto-select 3+ year applicants regardless of finishes" = "all_finishes"),
-                   selected = "none"),
+      # Generalizes what used to be a hardcoded "3+ year applicant" rule
+      # into a pickable threshold, so Caleb can compare guaranteeing entry
+      # on the 3rd, 4th, or 5th try instead of only ever seeing the 4th-try
+      # version. "Guaranteed by your 4th try" (threshold = 3 prior losses)
+      # reproduces the app's previous behavior exactly.
+      selectInput(
+        "auto_at", "Guaranteed-entry rule:",
+        choices = c(
+          "None (no automatic guarantee)" = "none",
+          "Guaranteed by your 3rd try (2 prior losses)" = "2",
+          "Guaranteed by your 4th try (3 prior losses)" = "3",
+          "Guaranteed by your 5th try (4 prior losses)" = "4"
+        ),
+        selected = "none"
+      ),
+      checkboxInput("auto_zero_finishes_only",
+                    "...but only guarantee applicants with zero previous finishes",
+                    FALSE),
+      br(),
       checkboxInput("no_firsttime_zero", "Disallow first-time applicants with no finishes", FALSE),
-      
-      br(),  # space below the checkbox
-      
-      checkboxInput("no_firsttime_zero", "Disallow first-time applicants with no finishes", FALSE),
-      br(),  # space below the checkbox
+      br(),
       checkboxGroupInput(
         inputId = "odds_toggles",
         label   = "Odds adjustments (select any):",
@@ -120,9 +221,6 @@ ui <- fluidPage(
         selected = character(0)
       ),
       hr(),
-      
-      
-      
       radioButtons("odds_method", "Odds Calculation Method:",
                    choices = c("Deterministic (Fast)" = "deterministic",
                                "Monte Carlo (N = 1,000, Slow)" = "mc1000",
@@ -141,17 +239,34 @@ ui <- fluidPage(
       textOutput("avgAppsStats"),
       textOutput("avgFinishesStats"),
       textOutput("trailworkStats"),
-      textOutput("volunteerStats")
-
+      textOutput("volunteerStats"),
+      hr(),
+      h4("Multi-Year Projection (Men)"),
+      helpText("A fast, simplified ('lite') multi-year projection -- good for exploring tradeoffs ",
+               "quickly, but it does not model the dormant-applicant reservoir that ",
+               "ANALYSIS_LOG.md's full cohort_sim.R simulation does, so it will look ",
+               "somewhat more optimistic than that write-up. Men's pool only (the ",
+               "analysis found formula choice barely matters for the women's pool)."),
+      selectInput("growth_rate", "Applicant pool growth:",
+                  choices = c("10% / yr (conservative)" = "10",
+                              "25% / yr (recent actual trend)" = "25",
+                              "30% / yr (aggressive)" = "30"),
+                  selected = "25"),
+      numericInput("years_to_project", "Years to project:", min = 3, max = 10, value = 8),
+      actionButton("runProjection", "Run multi-year projection", class = "collapsible-btn")
     ),
     mainPanel(
+      wellPanel(
+        h4("Guaranteed-Entry Snapshot (this year's data, no projection needed)"),
+        textOutput("autoSnapshot")
+      ),
       h3("Lottery Odds Summary"),
       actionButton("toggleAvgOdds", "Show/Hide Average Odds by Previous Applications", class = "collapsible-btn"),
       tags$div(
         id = "avgOddsPanel",
         fluidRow(
-          column(6, DTOutput("avgOddsW")),
-          column(6, DTOutput("avgOddsM"))
+          column(6, h5("Women (F)"), DTOutput("avgOddsW")),
+          column(6, h5("Men (M)"), DTOutput("avgOddsM"))
         )
       ),
       br(),
@@ -160,8 +275,8 @@ ui <- fluidPage(
       tags$div(
         id = "oddsPanel",
         fluidRow(
-          column(6, DTOutput("oddsW")),
-          column(6, DTOutput("oddsM"))
+          column(6, h5("Women (F)"), DTOutput("oddsW")),
+          column(6, h5("Men (M)"), DTOutput("oddsM"))
         )
       ),
       br(),
@@ -174,8 +289,8 @@ ui <- fluidPage(
           column(6, plotOutput("oddsDistM"))
         )
       ),
-      
-      
+
+
       br(),
       actionButton("toggleHistApps", "Show/Hide Picks by Previous Applications", class="collapsible-btn"),
       tags$div(
@@ -187,14 +302,26 @@ ui <- fluidPage(
         )
       ),
       br(),
-      actionButton("toggleHistFin", "Show/Hide Picks by Previous Finishes", class="collapsible-btn"),
+      actionButton("toggleHistFin", "Show/Hide Picks by Weighted Finishes", class="collapsible-btn"),
       tags$div(
         id = "histFinPanel",
-        tags$div(class = "collapsible-title", "Expected Distribution of Picks by Previous Finishes"),
+        tags$div(class = "collapsible-title", "Expected Distribution of Picks by Weighted Finishes (k)"),
         fluidRow(
           column(6, plotOutput("finHistW")),
           column(6, plotOutput("finHistM"))
         )
+      ),
+      br(),
+      actionButton("toggleProjection", "Show/Hide Multi-Year Projection", class = "collapsible-btn"),
+      tags$div(
+        id = "projectionPanel",
+        tags$div(class = "collapsible-title", "Multi-Year Projection (Men's pool)"),
+        h5("Does the current guaranteed-entry rule become oversubscribed?"),
+        tableOutput("autoTierTable"),
+        plotOutput("autoTierPlot"),
+        br(),
+        h5("Does a steeper formula actually get people in faster? (current vs base-3 vs base-4)"),
+        plotOutput("convergencePlot")
       )
     )
   )
@@ -210,129 +337,186 @@ withProgressSimulate <- function(tix, picks, n_sim, label = "Running Monte Carlo
 
 
 server <- function(input, output, session) {
-  
+
   observeEvent(input$toggleIntro, { shinyjs::toggle(id = "introPanel") })
   observeEvent(input$toggleAvgOdds, { shinyjs::toggle(id = "avgOddsPanel") })
   observeEvent(input$toggleOdds, { shinyjs::toggle(id = "oddsPanel") })
   observeEvent(input$toggleOddsDist, { shinyjs::toggle(id = "oddsDistPanel") })
   observeEvent(input$toggleHistApps, { toggle("histAppsPanel") })
   observeEvent(input$toggleHistFin, { toggle("histFinPanel") })
+  observeEvent(input$toggleProjection, { toggle("projectionPanel") })
 
-  # Memoized simulate_odds including exp, mult, year, rules, and number picked in key
-  memo_simulate_odds <- memoise::memoise(function(tix, picks, n_sim, exp_val, mult_val, year, rule, no_firsttime_zero) {
-    key <- digest::digest(list(round(tix, 8), picks, n_sim, exp_val, mult_val, year, rule, no_firsttime_zero))
-    attr(tix, "digest_key") <- key
+  # Memoized simulate_odds including every input that can change which
+  # people are even eligible to be drawn (tix and picks already reflect
+  # the formula/year/rule choices by the time they get here, since they're
+  # computed from them -- year/rule/no_firsttime_zero are included too only
+  # as an extra safety net against cache collisions, not because tix/picks
+  # alone could ever be ambiguous in practice).
+  memo_simulate_odds <- memoise::memoise(function(tix, picks, n_sim, exp_val, mult_val, year, rule, zero_finishes_only, no_firsttime_zero) {
     withProgressSimulate(tix, picks, n_sim)
   })
-  
-  
+
+
   # Reactive selector for display odds column
   display_odds_col <- reactive({
     if (input$odds_method %in% c("mc1000", "mc10000")) "Odds_MC" else "Odds_Exact"
   })
-  
-  # Show dynamic ticket formula
+
+  # Show dynamic ticket formula, reflecting the chosen formula family and
+  # both optional odds-adjustment toggles, using an example applicant built
+  # from the "Example Applicant Profile" sliders below.
   output$ticketFormula <- renderUI({
     exp_val <- input$exp
     mult_val <- input$mult
+    family <- input$formula_family
+    toggles <- input$odds_toggles
     apps <- input$apps
-    finishes <- input$finishes
-    volunteer <- input$volunteer
-    trailwork <- input$trailwork
-    k_val <- ifelse(finishes == 0, 0,
-                    ifelse(finishes == 1, 0.5,
-                           ifelse(finishes == 2, 1,
-                                  ifelse(finishes == 3, 1.5,
-                                         ifelse(finishes >= 4, 0.5, 0)))))
-    formula_text <- paste0(
-      "<div class='formula-box'><span class='formula-highlight'>Tickets = ",
-      exp_val, "^(", k_val, " + ", apps, " + 1)",
-      " + ", mult_val, " * log(", volunteer, " + ", trailwork, " + 1)</span></div>"
+    k_val <- derive_k_from_finishes(input$finishes)
+    v_sim <- input$volunteer
+    t_sim <- if ("drop_trail" %in% toggles) 0 else input$trailwork
+
+    formula_text <- switch(
+      family,
+      "current" = if ("no_log" %in% toggles) {
+        paste0(exp_val, "^(", k_val, " + ", apps, " + 1) + ", mult_val, " * (", v_sim, " + ", t_sim, ")")
+      } else {
+        paste0(exp_val, "^(", k_val, " + ", apps, " + 1) + ", mult_val, " * log(", v_sim, " + ", t_sim, " + 1)")
+      },
+      "pure_power" = paste0(exp_val, "^(", apps, " + ", k_val, ")  [service points have no effect in this family]"),
+      "caleb" = paste0(exp_val, "^", apps, " + ", apps, " * (", k_val, " + ", (v_sim + t_sim), ")")
     )
-    HTML(formula_text)
+    HTML(paste0("<div class='formula-box'><span class='formula-highlight'>Tickets = ", formula_text, "</span></div>"))
   })
-  
+
+  # base_data(): loads the selected year's applicant pool and computes each
+  # applicant's k (weighted finishes) and tickets.
+  #
+  # IMPORTANT FIX: the 2026 export (2026HLdata.csv) does not carry a raw
+  # Previous_Finishes count at all -- it supplies the already-weighted k
+  # value directly, under a column named Weighted_Finishes (see
+  # ANALYSIS_LOG.md). The older files (2023-2025) carry a raw finish COUNT
+  # instead, under Previous_Finishes, which has to be translated onto the
+  # 0/.5/1/1.5(/.5) scale via derive_k_from_finishes(). Branching on which
+  # column is actually present is the fix for a real bug: previously, this
+  # function unconditionally looked for Previous_Finishes, so selecting
+  # "2026" in the Data Year dropdown crashed the whole app.
   base_data <- reactive({
     fname <- switch(input$year_select,
                     "2026" = "2026HLdata.csv",
                     "2025" = "2025HLdata.csv",
                     "2024" = "2024HLdata.csv",
                     "2023" = "2023HLdata.csv")
-    df <- read.csv(fname, stringsAsFactors = FALSE) %>%
-      mutate(
-        Gender = ifelse(Lottery.Pool == "F", "Female", "Male"),
-        Previous_Applications = as.numeric(Previous_Applications),
-        Previous_Finishes = as.numeric(Previous_Finishes),
-        Volunteer_Points = pmin(as.numeric(Volunteer_Points), 30),
-        Extra_Trailwork_Points = pmin(as.numeric(Extra_Trailwork_Points), 10)
-      )
-    df$k <- ifelse(df$Previous_Finishes == 0, 0,
-                   ifelse(df$Previous_Finishes == 1, 0.5,
-                          ifelse(df$Previous_Finishes == 2, 1,
-                                 ifelse(df$Previous_Finishes == 3, 1.5, 0.5))))
-    df$tickets <- input$exp ^ (df$k + df$Previous_Applications + 1) +
-      input$mult * log(df$Volunteer_Points + df$Extra_Trailwork_Points + 1)
+    df <- read.csv(fname, stringsAsFactors = FALSE)
+
+    # 2026 is the only file with a Status column, and it includes 40
+    # "denied" applicants who were rejected before ever being assigned a
+    # Lottery Pool -- their Lottery.Pool is NA, not "M"/"F". Left in, they
+    # turn Gender NA, which then poisons sum(Gender == ... & ...) with NA
+    # as soon as anything (like the automatic-entry rule) tries to count
+    # them. cohort_sim.R's load_pool_2026() already excludes them for the
+    # same reason -- they were never real lottery participants.
+    if ("Status" %in% names(df)) {
+      df <- df %>% filter(Status != "denied")
+    }
+
+    if ("Weighted_Finishes" %in% names(df)) {
+      df$k <- as.numeric(df$Weighted_Finishes)
+      df$Previous_Finishes <- NA_real_   # not available this year -- see k instead
+    } else {
+      df$Previous_Finishes <- as.numeric(df$Previous_Finishes)
+      df$k <- derive_k_from_finishes(df$Previous_Finishes)
+    }
+
+    df <- df %>% mutate(
+      Gender = ifelse(Lottery.Pool == "F", "Female", "Male"),
+      Previous_Applications = as.numeric(Previous_Applications),
+      Volunteer_Points = pmin(as.numeric(Volunteer_Points), 30),
+      Extra_Trailwork_Points = pmin(as.numeric(Extra_Trailwork_Points), 10)
+    )
+
+    df$service <- apply_service_toggles(df$Volunteer_Points, df$Extra_Trailwork_Points, input$odds_toggles)
+    formula_fn <- build_app_formula(input$formula_family, input$exp, input$mult, input$odds_toggles)
+    df$tickets <- formula_fn(df$Previous_Applications, df$k, df$service)
     df
   })
-  
-  # Show user's ticket count for chosen slider profile
+
+  # Show user's ticket count for chosen slider profile (same formula logic
+  # as base_data(), applied to the hypothetical example applicant instead
+  # of the real data).
   output$userTickets <- renderText({
-    k_sim <- ifelse(input$finishes == 0, 0,
-                    ifelse(input$finishes == 1, 0.5,
-                           ifelse(input$finishes == 2, 1,
-                                  ifelse(input$finishes == 3, 1.5,
-                                         ifelse(input$finishes >= 4, 0.5, 0)))))
+    k_sim <- derive_k_from_finishes(input$finishes)
     v_sim <- pmin(input$volunteer, 30)
     t_sim <- pmin(input$trailwork, 10)
-    val <- input$exp ^ (k_sim + input$apps + 1) + input$mult * log(v_sim + t_sim + 1)
-    round(val, 2)
+    s_sim <- apply_service_toggles(v_sim, t_sim, input$odds_toggles)
+    formula_fn <- build_app_formula(input$formula_family, input$exp, input$mult, input$odds_toggles)
+    round(formula_fn(input$apps, k_sim, s_sim), 2)
   })
-  
+
+  # Marks applicants Auto-Selected (per the guaranteed-entry rule),
+  # Removed (per the "disallow first-time zero-finish applicants" rule),
+  # or left as ordinary Lottery entrants.
   processed_data <- reactive({
     df <- base_data()
     df$SelectionStatus <- "Lottery"
-    if (input$threeplus_rule == "zero_finishes") {
-      df$SelectionStatus[df$Previous_Applications >= 3 & df$Previous_Finishes == 0] <- "Auto-Selected"
-    } else if (input$threeplus_rule == "all_finishes") {
-      df$SelectionStatus[df$Previous_Applications >= 3] <- "Auto-Selected"
+
+    # Pre-selects (2026 only) already have a guaranteed spot through a
+    # channel unrelated to the ticket formula -- volunteer lottery, sponsor
+    # spot, previous-year podium, etc. (see Pre_Selection_Reason) -- and
+    # don't compete for the Nm/Nw lottery slots, exactly as
+    # ANALYSIS_LOG.md's "125 per pool (incl. pre-selects) -> 96/114 lottery
+    # picks" describes. Marking them here, before the discretionary
+    # auto_at rule below, means Nm/Nw correctly represent lottery-only
+    # slots whenever 2026 data (the only year with this column) is loaded.
+    if ("Status" %in% names(df)) {
+      df$SelectionStatus[df$Status == "preselect"] <- "Auto-Selected"
     }
+
+    if (input$auto_at != "none") {
+      threshold <- as.numeric(input$auto_at)
+      eligible <- df$Previous_Applications >= threshold
+      if (input$auto_zero_finishes_only) eligible <- eligible & (df$k == 0)
+      df$SelectionStatus[eligible & df$SelectionStatus == "Lottery"] <- "Auto-Selected"
+    }
+
     if (input$no_firsttime_zero) {
-      df$SelectionStatus[df$Previous_Applications == 0 & df$Previous_Finishes == 0] <- "Removed"
+      # Uses k == 0 rather than the raw Previous_Finishes count, since the
+      # raw count isn't available for 2026 data (see base_data()) -- k == 0
+      # means exactly the same thing (zero weighted finishes) either way,
+      # and is always available regardless of which year is loaded. Guarded
+      # to only ever downgrade an ordinary "Lottery" row, so it can never
+      # clobber a pre-select's or auto_at's guaranteed status.
+      df$SelectionStatus[df$SelectionStatus == "Lottery" &
+                            df$Previous_Applications == 0 & df$k == 0] <- "Removed"
     }
+
     df
   })
-  
-  calc_deterministic_odds <- function(tix, picks, exp_val, mult_val, year, rule, no_firsttime_zero) {
-    key <- digest::digest(list(round(tix, 8), picks, exp_val, mult_val, year, rule, no_firsttime_zero))
-    attr(tix, "deterministic_key") <- key
-    calc_lottery_odds(tix, picks)
-  }
-  
+
   # Simplified assigned_data() reactive function
   assigned_data <- reactive({
     df <- processed_data()
     n_picks_w <- max(0, input$Nw - sum(df$Gender == "Female" & df$SelectionStatus == "Auto-Selected"))
     n_picks_m <- max(0, input$Nm - sum(df$Gender == "Male" & df$SelectionStatus == "Auto-Selected"))
-    
+
     df$Odds_Exact <- NA_real_
     df$Odds_MC <- NA_real_
-    
+
     run_mc <- input$odds_method %in% c("mc1000", "mc10000")
     n_sim <- switch(input$odds_method,
                     "mc1000" = 1000,
                     "mc10000" = 100000,
                     0)
-    
+
     for (gender in c("Female", "Male")) {
       idx <- which(df$Gender == gender & df$SelectionStatus == "Lottery")
       picks <- ifelse(gender == "Female", n_picks_w, n_picks_m)
-      
+
       if (length(idx) > 0 && picks > 0) {
         tix <- df$tickets[idx]
-        
+
         # Direct calculation - no memoization needed, super fast
         df$Odds_Exact[idx] <- calc_lottery_odds(tix, picks)
-        
+
         # Only memoize the slow Monte Carlo simulations
         if (run_mc) {
           df$Odds_MC[idx] <- memo_simulate_odds(
@@ -342,27 +526,42 @@ server <- function(input, output, session) {
             exp_val = input$exp,
             mult_val = input$mult,
             year = input$year_select,
-            rule = input$threeplus_rule,
+            rule = input$auto_at,
+            zero_finishes_only = input$auto_zero_finishes_only,
             no_firsttime_zero = input$no_firsttime_zero
           )
         }
       }
-      
+
       # Handle auto-selected and removed cases
       df$Odds_Exact[df$Gender == gender & df$SelectionStatus == "Auto-Selected"] <- 1
       df$Odds_MC[df$Gender == gender & df$SelectionStatus == "Auto-Selected"] <- 1
       df$Odds_Exact[df$Gender == gender & df$SelectionStatus == "Removed"] <- 0
       df$Odds_MC[df$Gender == gender & df$SelectionStatus == "Removed"] <- 0
     }
-    
+
     df
-  }) 
-  
+  })
+
   get_display_odds <- function(df) {
     method <- input$odds_method
     if (method %in% c("mc1000", "mc10000")) df$Odds_MC else df$Odds_Exact
   }
-  
+
+  # --- Guaranteed-entry snapshot (always-on, cheap -- no projection needed) ---
+  output$autoSnapshot <- renderText({
+    if (input$auto_at == "none") return("No automatic-entry guarantee is active.")
+    threshold <- as.numeric(input$auto_at)
+    df <- processed_data()
+    elig_m <- sum(df$Gender == "Male" & df$SelectionStatus == "Auto-Selected")
+    elig_w <- sum(df$Gender == "Female" & df$SelectionStatus == "Auto-Selected")
+    sprintf(
+      paste0("Guaranteed entry at %d+ prior losses, using %s data: %d men already qualify ",
+             "(vs. %d men's slots total), %d women already qualify (vs. %d women's slots total)."),
+      threshold, input$year_select, elig_m, input$Nm, elig_w, input$Nw
+    )
+  })
+
   output$avgOddsW <- renderDT({
     df <- assigned_data() %>% filter(Gender == "Female")
     df$Display_Odds <- df[[display_odds_col()]]
@@ -376,7 +575,7 @@ server <- function(input, output, session) {
         .groups = "drop") %>%
       rename(`Previous Applications` = Previous_Applications)
     datatable(avg, options = list(dom = "t"), rownames = FALSE)
-  }) 
+  })
   output$avgOddsM <- renderDT({
     df <- assigned_data() %>% filter(Gender == "Male")
     df$Display_Odds <- df[[display_odds_col()]]
@@ -390,13 +589,13 @@ server <- function(input, output, session) {
         .groups = "drop") %>%
       rename(`Previous Applications` = Previous_Applications)
     datatable(avg, options = list(dom = "t"), rownames = FALSE)
-  }) 
-  
+  })
+
   output$oddsW <- renderDT({
     df <- assigned_data() %>% filter(Gender == "Female")
     df$Display_Odds <- df[[display_odds_col()]]
     grouped <- df %>%
-      group_by(tickets, Previous_Applications, Previous_Finishes, SelectionStatus, Display_Odds) %>%
+      group_by(tickets, Previous_Applications, k, SelectionStatus, Display_Odds) %>%
       summarise(N = n(), .groups = "drop") %>%
       mutate(
         tickets_char = formatC(round(tickets,2), format="f", digits=2),
@@ -405,13 +604,13 @@ server <- function(input, output, session) {
       arrange(as.numeric(tickets_char)) %>%
       select("Tickets" = tickets_char, "N" = N,
              "Previous Apps" = Previous_Applications,
-             "Previous Fins" = Previous_Finishes,
+             "Finishes (k)" = k,
              "Selection Status" = SelectionStatus,
              "Odds (%)" = odds_percent)
-    
-    datatable(grouped, 
+
+    datatable(grouped,
               options = list(
-                dom = "tip", 
+                dom = "tip",
                 pageLength = 20,
                 # Add styling to make font smaller
                 initComplete = JS(
@@ -420,15 +619,15 @@ server <- function(input, output, session) {
                   "$(this.api().table().body()).css({'font-size': '11px'});",
                   "}"
                 )
-              ), 
+              ),
               rownames = FALSE)
   })
-  
+
   output$oddsM <- renderDT({
     df <- assigned_data() %>% filter(Gender == "Male")
     df$Display_Odds <- df[[display_odds_col()]]
     grouped <- df %>%
-      group_by(tickets, Previous_Applications, Previous_Finishes, SelectionStatus, Display_Odds) %>%
+      group_by(tickets, Previous_Applications, k, SelectionStatus, Display_Odds) %>%
       summarise(N = n(), .groups = "drop") %>%
       mutate(
         tickets_char = formatC(round(tickets,2), format="f", digits=2),
@@ -437,13 +636,13 @@ server <- function(input, output, session) {
       arrange(as.numeric(tickets_char)) %>%
       select("Tickets" = tickets_char, "N" = N,
              "Previous Apps" = Previous_Applications,
-             "Previous Fins" = Previous_Finishes,
+             "Finishes (k)" = k,
              "Selection Status" = SelectionStatus,
              "Odds (%)" = odds_percent)
-    
-    datatable(grouped, 
+
+    datatable(grouped,
               options = list(
-                dom = "tip", 
+                dom = "tip",
                 pageLength = 20,
                 # Add styling to make font smaller
                 initComplete = JS(
@@ -452,29 +651,41 @@ server <- function(input, output, session) {
                   "$(this.api().table().body()).css({'font-size': '11px'});",
                   "}"
                 )
-              ), 
+              ),
               rownames = FALSE)
   })
-  
-  # --- Fractions of applicants using points (selected year) ---
-  output$statsTitle <- renderText({ "Observed Volunteer/Trailwork Fraction" })
-  
+
+  # --- Fractions / averages of applicant characteristics (selected year) ---
+  output$statsTitle <- renderText({ "Observed Applicant Stats" })
+
+  output$avgAppsStats <- renderText({
+    df <- base_data()
+    if (is.null(df) || nrow(df) == 0) return("Average previous applications: n/a")
+    sprintf("Average previous applications: %.1f", mean(df$Previous_Applications, na.rm = TRUE))
+  })
+
+  output$avgFinishesStats <- renderText({
+    df <- base_data()
+    if (is.null(df) || nrow(df) == 0) return("Average weighted finishes (k): n/a")
+    sprintf("Average weighted finishes (k): %.2f", mean(df$k, na.rm = TRUE))
+  })
+
   output$volunteerStats <- renderText({
     df <- base_data()
     if (is.null(df) || nrow(df) == 0) return("Volunteer points used: n/a")
     frac <- mean(ifelse(is.na(df$Volunteer_Points), 0, df$Volunteer_Points) > 0)
     sprintf("Volunteer points used: %.1f%%", frac * 100)
   })
-  
+
   output$trailworkStats <- renderText({
     df <- base_data()
     if (is.null(df) || nrow(df) == 0) return("Extra trailwork used: n/a")
     frac <- mean(ifelse(is.na(df$Extra_Trailwork_Points), 0, df$Extra_Trailwork_Points) > 0)
     sprintf("Extra trailwork used: %.1f%%", frac * 100)
   })
-  
-  
-  
+
+
+
   # --- Expected picks by previous applications (bar) ---
   output$histW <- renderPlot({
     df <- assigned_data() %>% filter(Gender == "Female")
@@ -482,42 +693,42 @@ server <- function(input, output, session) {
     df <- df %>% group_by(Previous_Applications) %>% summarise(ExpectedPicks = sum(Display_Odds, na.rm = TRUE))
     ggplot(df, aes(x = factor(Previous_Applications), y = ExpectedPicks)) +
       geom_col(fill = "#B7822E") +
-      labs(x = "Previous Applications", y = "Expected # Picked") +
+      labs(x = "Previous Applications", y = "Expected # Picked", title = "Women") +
       theme_minimal()
   })
-  
+
   output$histM <- renderPlot({
     df <- assigned_data() %>% filter(Gender == "Male")
     df$Display_Odds <- df[[display_odds_col()]]
     df <- df %>% group_by(Previous_Applications) %>% summarise(ExpectedPicks = sum(Display_Odds, na.rm = TRUE))
     ggplot(df, aes(x = factor(Previous_Applications), y = ExpectedPicks)) +
       geom_col(fill = "#2270AE") +
-      labs(x = "Previous Applications", y = "Expected # Picked") +
+      labs(x = "Previous Applications", y = "Expected # Picked", title = "Men") +
       theme_minimal()
   })
-  
-  
-  # --- Expected picks by previous finishes (bar) ---
+
+
+  # --- Expected picks by weighted finishes (k) (bar) ---
   output$finHistW <- renderPlot({
     df <- assigned_data() %>% filter(Gender == "Female")
     df$Display_Odds <- df[[display_odds_col()]]
-    df <- df %>% group_by(Previous_Finishes) %>% summarise(ExpectedPicks = sum(Display_Odds, na.rm = TRUE))
-    ggplot(df, aes(x = factor(Previous_Finishes), y = ExpectedPicks)) +
+    df <- df %>% group_by(k) %>% summarise(ExpectedPicks = sum(Display_Odds, na.rm = TRUE))
+    ggplot(df, aes(x = factor(k), y = ExpectedPicks)) +
       geom_col(fill = "#E1B882") +
-      labs(x = "Previous Finishes", y = "Expected # Picked") +
+      labs(x = "Weighted Finishes (k)", y = "Expected # Picked", title = "Women") +
       theme_minimal()
   })
-  
+
   output$finHistM <- renderPlot({
     df <- assigned_data() %>% filter(Gender == "Male")
     df$Display_Odds <- df[[display_odds_col()]]
-    df <- df %>% group_by(Previous_Finishes) %>% summarise(ExpectedPicks = sum(Display_Odds, na.rm = TRUE))
-    ggplot(df, aes(x = factor(Previous_Finishes), y = ExpectedPicks)) +
+    df <- df %>% group_by(k) %>% summarise(ExpectedPicks = sum(Display_Odds, na.rm = TRUE))
+    ggplot(df, aes(x = factor(k), y = ExpectedPicks)) +
       geom_col(fill = "#9EC6F5") +
-      labs(x = "Previous Finishes", y = "Expected # Picked") +
+      labs(x = "Weighted Finishes (k)", y = "Expected # Picked", title = "Men") +
       theme_minimal()
   })
-  
+
   output$oddsDistW <- renderPlot({
     df <- assigned_data() %>% filter(Gender == "Female")
     ggplot() +
@@ -528,7 +739,7 @@ server <- function(input, output, session) {
       labs(x = "Tickets", y = "Odds", color = "Method", title = "Women: Ticket vs Odds (Both Methods)") +
       theme_minimal()
   })
-  
+
   output$oddsDistM <- renderPlot({
     df <- assigned_data() %>% filter(Gender == "Male")
     ggplot() +
@@ -537,6 +748,104 @@ server <- function(input, output, session) {
       scale_color_manual(values = c("Direct" = "#2270AE", "Monte Carlo" = "#B7822E")) +
       scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0,1)) +
       labs(x = "Tickets", y = "Odds", color = "Method", title = "Men: Ticket vs Odds (Both Methods)") +
+      theme_minimal()
+  })
+
+  ## -------------------------------------------------------------------------
+  ## Multi-year projection (Men's pool). See lottery_projection.R for the
+  ## engine and its documented assumptions/limitations. Wrapped in
+  ## eventReactive()s tied to the "Run multi-year projection" button (rather
+  ## than plain reactive()s) so the projection -- an 8-year loop -- doesn't
+  ## re-run on every slider tick, per CLAUDE.md's guidance to keep things
+  ## fast on a RAM-limited machine.
+  ## -------------------------------------------------------------------------
+
+  # seed_groups_for_projection(): collapses this year's real applicant data
+  # (men only) down to (n, k, s, N) group counts -- the input format
+  # project_pool() expects.
+  seed_groups_for_projection <- function() {
+    df <- base_data() %>% filter(Gender == "Male")
+    # Preselects (2026 only) have a guaranteed spot unrelated to the ticket
+    # formula and don't compete in the lottery draw -- see the same
+    # exclusion in processed_data(). Keeping them out here too means the
+    # projection's pool matches what the main odds tables actually show.
+    if ("Status" %in% names(df)) df <- df %>% filter(Status != "preselect")
+    df %>%
+      transmute(n = Previous_Applications, k = k, s = service) %>%
+      group_by(n, k, s) %>%
+      summarise(N = n(), .groups = "drop")
+  }
+
+  # Projects the CURRENTLY SELECTED formula/guarantee-rule combination
+  # forward, to see whether/when it becomes oversubscribed.
+  auto_tier_projection <- eventReactive(input$runProjection, {
+    seed <- seed_groups_for_projection()
+    growth <- as.numeric(input$growth_rate) / 100
+    auto_at <- if (input$auto_at == "none") Inf else as.numeric(input$auto_at)
+    formula_fn <- build_app_formula(input$formula_family, input$exp, input$mult, input$odds_toggles)
+    project_pool(seed, formula_fn, n_picks = input$Nm, years = input$years_to_project,
+                 growth = growth, auto_at = auto_at, pool = "M")
+  })
+
+  # Projects THREE FIXED, NAMED formulas (current / base-3 / base-4) --
+  # independent of whatever the sidebar's formula_family/exp/mult controls
+  # happen to be set to -- because this chart's whole point is the specific,
+  # already-documented comparison from ANALYSIS_LOG.md's static-
+  # counterfactuals table: that those three formulas give a persistent
+  # rookie nearly identical odds through year 3, and only diverge from
+  # year 4 onward.
+  convergence_projection <- eventReactive(input$runProjection, {
+    seed <- seed_groups_for_projection()
+    growth <- as.numeric(input$growth_rate) / 100
+    horizon <- min(5, input$years_to_project)
+    fams <- list(
+      "current: 2^(n+k+1)+2log(s+1)" = build_ticket_formula("current", exp_val = 2, mult_val = 2),
+      "base 3:  3^(n+k)"             = build_ticket_formula("pure_power", exp_val = 3),
+      "base 4:  4^(n+k)"             = build_ticket_formula("pure_power", exp_val = 4)
+    )
+    lapply(fams, function(f) {
+      proj <- project_pool(seed, f, n_picks = input$Nm, years = input$years_to_project,
+                            growth = growth, auto_at = Inf, pool = "M")
+      persistent_rookie_path(proj, horizon = horizon)
+    })
+  })
+
+  output$autoTierTable <- renderTable({
+    if (input$auto_at == "none") {
+      return(data.frame(Note = "Pick a guaranteed-entry rule in the sidebar to see this projection."))
+    }
+    proj <- auto_tier_projection()
+    proj$yearly %>%
+      transmute(
+        `Years from now` = year,
+        `Projected men's pool` = round(pool_size),
+        `Already past the guarantee threshold` = round(auto_eligible),
+        `Their share of men's slots` = sprintf("%.0f%%", pct_of_slots)
+      )
+  })
+
+  output$autoTierPlot <- renderPlot({
+    if (input$auto_at == "none") return(NULL)
+    proj <- auto_tier_projection()
+    ggplot(proj$yearly, aes(x = year, y = pct_of_slots)) +
+      geom_line(color = "#B7822E", linewidth = 1) +
+      geom_point(color = "#B7822E", size = 2) +
+      geom_hline(yintercept = 100, linetype = "dashed", color = "red") +
+      labs(x = "Years from now", y = "% of men's slots used by the guaranteed tier alone",
+           title = "When does this guarantee become oversubscribed? (red line = 100%)") +
+      theme_minimal()
+  })
+
+  output$convergencePlot <- renderPlot({
+    paths <- convergence_projection()
+    dd <- bind_rows(lapply(names(paths), function(nm) paths[[nm]] %>% mutate(formula = nm)))
+    ggplot(dd, aes(x = year_of_applying, y = cum_in, color = formula)) +
+      geom_line(linewidth = 1) +
+      geom_point(size = 2) +
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 1)) +
+      labs(x = "Years of persistently applying", y = "Cumulative chance of getting in",
+           title = "A steeper base barely matters before year 4",
+           color = "Formula") +
       theme_minimal()
   })
 }

@@ -4,6 +4,165 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-12 — Dashboard (app.R): fixed 2026 data crash, added interactive knobs
+
+**Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**
+Garret should review the diff and deploy himself.
+
+### Update: two issues Garret hit running the app in RStudio
+
+- **"error: incorrect number of probabilities" in the Monte Carlo odds
+  method.** This is a classic R footgun, pre-existing in `simulate_draw()`
+  (not introduced by this session's other changes): `sample(x, 1, prob =
+  probs)` behaves differently when `x` has length 1 -- R treats a
+  length-1 *numeric* `x` as "draw from `1:x`", not "this one candidate
+  already identified," so a length-1 `prob` then doesn't match the
+  length R expects internally and it throws. This fires whenever a draw
+  runs all the way down to exactly one remaining candidate -- i.e.
+  whenever "Number of Men/Women to Pick" is close to or exceeds the
+  "Lottery"-eligible pool for that year. Fixed by special-casing
+  `length(remaining) == 1` to take that candidate directly instead of
+  calling `sample()` at all. Verified with direct unit tests of
+  `simulate_draw()`/`simulate_odds()` at the exhaustion boundary (pools of
+  length 1, 2, 5, 6, with exact/over-asked pick counts, and a zero-ticket
+  case), then through the full app pipeline forcing exhaustion on the
+  smallest real pool (2023 women, N=151) across all 3 formula families x
+  all 4 automatic-entry thresholds, then a happy-path regression check
+  (realistic Nm/Nw defaults, no forced exhaustion) across all 4 years --
+  all passed. (Noted but out of scope: `simulate_draw()`'s loop-based
+  approach is O(picks x pool) per replication and gets slow near full-pool
+  exhaustion; CLAUDE.md documents a faster exact method,
+  `order(rexp(N)/tickets)[1:n_picks]`, already used in `cohort_sim.R`,
+  that doesn't have this bug at all -- worth swapping in if Monte Carlo
+  speed becomes a real problem, not done here to keep this fix minimal.)
+- **Side-by-side Women/Men columns had no header.** The two
+  `fluidRow(column(6, ...), column(6, ...))` blocks under "Lottery Odds
+  Summary" and "Detailed Odds" (the `avgOddsW`/`avgOddsM` and
+  `oddsW`/`oddsM` DataTables) had nothing distinguishing which side was
+  which pool -- unlike the plots further down, which already had ggplot
+  titles. Added "Women (F)" / "Men (M)" headers above both table pairs,
+  and added matching "Women"/"Men" plot titles to `histW`/`histM` and
+  `finHistW`/`finHistM`, which had the same ambiguity (only distinguished
+  by bar color).
+
+### Bugs found and fixed in `app.R`
+
+- **Selecting "2026" in the Data Year dropdown crashed the app outright.**
+  `base_data()` unconditionally expected a `Previous_Finishes` column, but
+  the 2026 export doesn't carry one -- it supplies the already-weighted `k`
+  value directly under `Weighted_Finishes` (see this file's 2026-09-14
+  entry). Now branches on which column is actually present.
+- **40 "denied" 2026 applicants have no pool assignment at all**
+  (`Lottery Pool` is `NA` for all of them -- they were rejected before ever
+  being assigned a pool). Left in, any logic that counts people by gender
+  (e.g. the new automatic-entry rule below) silently produces `NA` instead
+  of a slot count. Now excluded in `base_data()`, matching
+  `cohort_sim.R`'s `load_pool_2026()`, which already excludes them.
+- **2026 preselects (29 M / 11 F) were competing in the ordinary lottery
+  pool** instead of being treated as already-guaranteed, unrelated to the
+  ticket formula -- inconsistent with this log's own "125 per pool incl.
+  pre-selects -> 96/114 lottery picks" framing. Now marked
+  `SelectionStatus == "Auto-Selected"` up front, same as a guaranteed-entry
+  rule, so `Nm`/`Nw` sliders correctly mean lottery-only slots.
+- Removed a duplicated `checkboxInput("no_firsttime_zero", ...)` (same
+  input registered twice, copy-paste artifact).
+- `textOutput("avgAppsStats")` / `textOutput("avgFinishesStats")` existed
+  in the UI with no server-side `renderText` behind them (rendered blank).
+  Implemented both.
+- Removed `calc_deterministic_odds()`, a dead function (never called --
+  `assigned_data()` calls `calc_lottery_odds()` directly) that also did a
+  pointless `digest::digest()` into an attribute nothing ever read; trimmed
+  the same dead pattern out of `memo_simulate_odds()`.
+- Confirmed `calc_lottery_odds()`'s recursion already matches this file's
+  documented September 2026 fix (survival is not double-counted) --
+  no change needed there.
+- `checkboxGroupInput("odds_toggles", ...)` ("Drop trailwork", "Drop log
+  and +1") existed in the UI but `input$odds_toggles` was never read
+  anywhere in the server -- wired both up (see `build_app_formula()` /
+  `apply_service_toggles()` in `app.R`).
+
+### New interactive knobs
+
+Per Garret's request, audited the existing UI first rather than adding
+parallel controls:
+
+1. **Formula selector -- extended existing controls.** The `exp`/`mult`
+   sliders already let you vary the current formula's base and service
+   multiplier; they could not express a formula with no service term at
+   all (e.g. `3^(n+k)`) or Caleb's proposal. Added one
+   `selectInput("formula_family", ...)` (current / pure power / Caleb)
+   that reuses the existing `exp` slider as the base for all three
+   families, rather than adding a second base control. Shared with the new
+   projection engine via `lottery_projection.R`'s `build_ticket_formula()`.
+2. **Automatic-entry guarantee -- generalized an existing control.**
+   `radioButtons("threeplus_rule", ...)` already implemented a guarantee,
+   hardcoded at n>=3 ("3+ year applicant"). Replaced with
+   `selectInput("auto_at", ...)` (3rd/4th/5th try, i.e. n>=2/3/4),
+   preserving the old n>=3 behavior as one of the choices, plus a small
+   always-on "Guaranteed-Entry Snapshot" text block showing how many
+   applicants already qualify vs. slots available for whichever threshold
+   is selected -- no projection/button needed for that part, it's cheap.
+3. **Growth-rate scenario selector -- new** (10% / 25% / 30% per year,
+   matching `cohort_sim.R`'s three scenarios).
+4. **Year-3-convergence view -- new.** A chart comparing current vs.
+   base-3 vs. base-4's cumulative "persistent rookie" odds by year, to
+   make visible in the dashboard itself that the three formulas are nearly
+   indistinguishable through year 3 and only diverge from year 4 on.
+
+(3) and (4), plus a companion "when does the guarantee become
+oversubscribed" chart for (2), are powered by a new file,
+`lottery_projection.R`: a fast, deterministic (expected-value, not Monte
+Carlo) multi-year projection engine, since the real `cohort_sim.R`
+simulation takes ~3 minutes and can't sit behind a dashboard slider. It
+tracks population by `(n, k, s)` group instead of by individual, which
+is mathematically identical to the individual-level recursion when
+everyone in a group is interchangeable, and runs in milliseconds.
+**Deliberately simplified** relative to `cohort_sim.R` (see that file's
+header comment for the full list): no dormant-reservoir/comeback
+modeling, new rookies modeled as one homogeneous k=0/s=0 group, no
+service-point accumulation, fixed (non-adjustable) retention rates taken
+from this log's panel-derived figures. This makes it systematically
+*optimistic* relative to this log's dormancy-adjusted numbers -- use
+`cohort_sim.R` for anything that needs to match this write-up exactly.
+Validated against this log's first-pass cohort-sim table (before the
+dormancy revision) and landed within a few points on every formula/year
+(e.g. base 4 at year 5: 86% here vs. 89% there), with the year-3
+convergence point holding even tighter (19-21% here vs. 22-24% there).
+Both the new engine's outputs and all 2026 data use the same real
+person-level data already used to run the Monte Carlo odds elsewhere in
+the app; nothing synthetic was introduced.
+
+Projections are gated behind an explicit "Run multi-year projection"
+button (`eventReactive`, not `reactive`) so an 8-year loop doesn't re-run
+on every slider tick, per this file's RAM/speed guidance.
+
+### Testing
+
+All packages (`shiny`, `dplyr`, `DT`, `bslib`, `ggplot2`, etc.) loaded
+fine in this environment (R 4.3.3) -- the "library mismatch" gotcha noted
+elsewhere in this file did not apply here. Tested with `shiny::testServer()`
+(simulated inputs, no browser) across all 4 data years, all 3 formula
+families, all 4 automatic-entry settings, and the projection button; also
+did a real `shiny::runApp()` launch on a local port and confirmed it serves
+HTTP 200. The `testServer` run is what surfaced the "denied" applicants'
+`NA`-gender bug above -- it wasn't visible just from reading the code.
+
+### Left for Garret to review before deploying
+
+- The projection engine's simplifications (no dormancy, homogeneous
+  rookies) are a deliberate speed/accuracy tradeoff for an interactive
+  tool; if the exact dormancy-adjusted numbers matter for a given
+  conversation with Caleb, point him at this log / `cohort_sim.R` instead.
+- Didn't touch the pre-existing cosmetic warning where the "Ticket vs
+  Odds" scatter plots always draw a "Monte Carlo" layer even when
+  Odds Calculation Method is "Deterministic" (all-NA, silently dropped by
+  ggplot with a harmless warning) -- out of scope for this pass.
+- Growth rate and automatic-entry threshold are dashboard knobs; the
+  underlying retention rates are not (kept as fixed, documented constants)
+  to keep the UI focused on what this conversation specifically asked for.
+
+---
+
 ## 2026-09-14 — 2027 lottery redesign: data, odds bug, cohort simulation
 
 ### Bottom line (as of end of day)
