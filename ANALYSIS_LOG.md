@@ -4,6 +4,215 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 (11) — Dashboard (app.R): generalized Max Boost slider to every formula family (not just Garret's decoupled proposal)
+
+**Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
+
+Garret's feedback on round (6)/(7)'s Max Boost slider: "the Finish Bonus
+Ramp is in the right place but the third one (Max finish-bonus boost
+(multiplier):) only appears when you've selected Garret's version of the
+equation. In fact, K is in pretty much all equations, so the slider
+should appear (and work) regardless." He's right: `k` feeds into every
+`build_ticket_formula()` arm (`lottery_projection.R`) except it enters
+each one differently, and only `garret_decoupled`'s arm was ever wired to
+the adjustable cap -- every other family was stuck on the hardcoded
+`k_cap <- 0.5 * ramp` baked into `derive_k_from_finishes()`.
+
+### What was actually checked before touching anything (per the task's
+explicit instruction to re-read the code, not assume)
+
+Re-read `derive_k_from_finishes()`, `garret_k_cap()`, and every
+`build_ticket_formula()` arm before changing anything. Two things worth
+recording because they contradict a plausible-sounding assumption:
+
+1. **There is no separate selectable "base 3" / "base 4" formula
+   family.** `pure_power` is ONE family, `exp_val ^ (n + k)`, using the
+   SAME shared "Exponent / Base" slider (`input$exp`, default 2) that
+   `current` also uses. The selectInput choice label's "(e.g. 3^(n+k) or
+   4^(n+k))" is just illustrating what moving that slider does, not two
+   separate hardcoded-base families. So there is no meaningful
+   distinction between a "base3 default" and a "base4 default" in the
+   actual code -- both are the same family at different live slider
+   positions.
+2. **`garret_decoupled`'s k-term base is NOT the shared `exp` slider.**
+   Its formula is `exp_val ^ n * 2 ^ (k + s)` -- by the explicit
+   "decoupling" design from the 2026-10-13 "Decoupled formula design"
+   entry, the `2^(...)` factor bounding the veteran bonus is a SEPARATE,
+   always-fixed base 2, independent of whatever `exp_val`/`b` is set to.
+   So this family's cap conversion was already (and remains) `log2(...)`
+   regardless of the Exponent/Base slider -- it does NOT use "the
+   adjustable exp/b input," contrary to what a naive reading of the base
+   math might suggest.
+
+Given (1) and (2), the correct generalization is base-dependent per
+family's actual formula shape, not a single formula applied uniformly.
+
+### The fix
+
+**`garret_k_cap(family, max_boost, exp_val = 2)`** (top of `app.R`) now
+computes a cap for every family except `caleb`:
+```r
+garret_k_cap <- function(family, max_boost, exp_val = 2) {
+  if (identical(family, "caleb")) return(NULL)
+  base_for_cap <- if (identical(family, "garret_decoupled")) 2 else as.numeric(exp_val)
+  log(as.numeric(max_boost), base = base_for_cap)
+}
+```
+- `current` / `pure_power`: `k` shares the exponent with `n`
+  (`exp_val^(n+k+1)` / `exp_val^(n+k)`), so `base_for_cap = exp_val` --
+  the live "Exponent / Base" slider, default 2.
+- `garret_decoupled`: unchanged, `base_for_cap = 2` always (decoupled by
+  design, per above).
+- `caleb`: returns `NULL`, same as `derive_k_from_finishes()`'s own
+  "nothing passed -> use `0.5*ramp`" default -- i.e. **caleb's k keeps
+  exactly today's hardcoded cap, completely unaffected by the Max Boost
+  slider.** Decision, per the task's explicit fallback option: caleb's
+  `k` is additive (`exp_val^n + n*(k+s)`), not an exponent, so there is no
+  base `b` for which "a boost multiplier" has a coherent meaning --
+  capping it via `log_b(max_boost)` would be mathematically arbitrary.
+  Rather than inventing one, the slider is shown (per the task's explicit
+  "should appear regardless" instruction) but documented, right next to
+  it via a `caleb`-only `conditionalPanel` helpText, as having no effect
+  for this family. Lower priority anyway, since `caleb` is already
+  documented elsewhere as "nearly a no-op vs. base4."
+- All 5 call sites (`output$ticketFormula`, `output$kRampPlot`,
+  `base_data()`'s two branches, `output$userTickets`) now pass
+  `input$exp` through to `garret_k_cap()`.
+
+**UI:** the `sliderInput("max_boost", ...)` was un-wrapped from its old
+`garret_decoupled`-only `conditionalPanel` and moved to sit unconditionally
+right after `k_floor` (where round (7) had already relocated it), so it's
+always visible for every family, same position as before. Range widened
+from 1.1-5 to 1.01-20 since `current`/`pure_power` can now drive this
+against a base up to 5 (the Exponent/Base slider's max), not just
+`garret_decoupled`'s ~2x-ish range. A new always-visible `helpText()`
+explains which base the cap applies against per family, and a
+`caleb`-only `conditionalPanel` helpText explains the no-effect decision
+above.
+
+**Default value, and why it had to be exactly `2^1.5`:** the slider's
+default is `2^1.5` (~2.828x), not `2.0`. Derivation: at this app's
+production defaults (`exp = 2`, `k_ramp = 3`), the OLD hardcoded cap was
+`k_cap <- 0.5 * ramp = 1.5`. For the new generalized cap to reproduce that
+*exactly*, `log_2(default_max_boost)` must equal `1.5`, i.e.
+`default_max_boost = 2^1.5`. Checked in R that this round-trips to bit-for-
+bit `1.5` (`log(2^1.5, base = 2) == 1.5` is `TRUE`, not just
+approximately), so there is no floating-point slack between the slider's
+stored value and the cap it produces. Verified the rendered UI actually
+carries this: `as.character(ui)`'s `max_boost` slider shows
+`data-from="2.82842712474619"` to full double precision, not a step-
+rounded `2.8`.
+
+Since `current` and `pure_power` both raise `k` against the exact SAME
+live base (`exp_val`, shared, default 2), this single default (`2^1.5`)
+correctly reproduces the old hardcoded behavior for BOTH families
+simultaneously -- there was never a need for a separate "base3 default"
+vs. "base4 default," because (per the finding above) those aren't actually
+separate families, and the pre-change hardcoded cap (`0.5*ramp`) was never
+family-specific to begin with. `garret_decoupled` keeps its own default of
+`2.0` (base always 2, paired with its own `k_ramp` default of 2 -> `k_cap
+= log2(2) = 1`, the original "2x veteran cap"), unchanged from round (6).
+
+**`observeEvent(input$formula_family, ...)`** (the same one already
+nudging `exp`/`k_ramp` for `garret_decoupled`) gained a second branch:
+switching into `current` or `pure_power` now nudges `max_boost` to
+`input$exp ^ (0.5 * input$k_ramp)`, using WHATEVER `exp`/`k_ramp` are
+currently set to at that moment -- not hardcoded 2/3 -- so that re-
+selecting either family re-centers Max Boost on "today's old rule" given
+the live base/ramp, even after bouncing in from `garret_decoupled` (which
+leaves `exp`/`k_ramp` at 3/2). On a fresh app load (family starts as
+`current`, `ignoreInit = TRUE` so the observer never fires), the slider's
+own built-in default (`2^1.5`) already matches what this branch would
+compute anyway (`2^(0.5*3)`), so there's no discontinuity between the
+static default and the nudge logic. `caleb` is deliberately NOT nudged
+(no effect to nudge toward).
+
+### Critical acceptance test: `current` at its new default still reproduces `Weighted_Finishes` exactly
+
+Re-ran the exact regression `a4e6692` established (default ramp=3,
+floor=0.5 must reproduce 2026's `Weighted_Finishes` column with ZERO
+absolute error), now through the new generalized `garret_k_cap()` path
+instead of the old hardcoded branch, via `shiny::testServer()` against the
+real server function with `formula_family = "current"`, `exp = 2`,
+`k_ramp = 3`, `k_floor = 0.5`, `max_boost = 2^1.5` (the slider's actual new
+default):
+
+```
+n rows: 1256
+max_boost input value: 2.828427
+exp input value: 2
+max abs diff k vs Weighted_Finishes: 0
+ALL EXACT: TRUE
+```
+
+**PASSED.** `max(abs(df$k - as.numeric(df$Weighted_Finishes))) == 0`
+exactly, same zero-error bar `a4e6692` set. This was run and confirmed
+BEFORE anything else was considered done, per the task's explicit
+ordering requirement.
+
+### Further verification
+
+- **Slider's effect is real, not cosmetic**, via `shiny::testServer()`
+  comparing `output$userTickets` at default vs. a moved Max Boost, same
+  example applicant (`apps=2, finishes=2, volunteer=0, trailwork=0`)
+  throughout:
+  - `current` (exp=2, k_ramp=3): default (2.828) -> 16 tickets; moved to
+    4.0 -> 20.16 tickets. Changed, as expected (`k` rises from 1 to
+    1.333).
+  - `pure_power` at exp=4 (i.e. "base 4"): default (`4^1.5=8`) -> 64
+    tickets; moved to 16.0 -> 101.59 tickets. Changed.
+  - `caleb` at exp=3: default (2.828) -> 11 tickets; moved to 100 -> 11
+    tickets. **Identical**, confirming the documented no-effect decision
+    holds in practice, not just in the helper function.
+  - `garret_decoupled` (exp=3, k_ramp=2): mb=2.0 -> 18 tickets; mb=4.0 ->
+    36 tickets (exactly 2x, as expected -- unchanged from round (6)'s own
+    verification).
+- **No NAs/errors across all families x a range of Max Boost values**:
+  `shiny::testServer()` swept all 4 formula families x 6 `max_boost`
+  values (1.05, 2.0, `2^1.5`, 5, 10, 19.9) x all 4 data years
+  (2023-2026) = 96 combinations, checking `base_data()` (no NA/non-finite
+  tickets), `assigned_data()` (renders, nonzero rows), `output$userTickets`
+  (finite), and `output$ticketFormula` (renders) at each. **0 errors out
+  of 96.** (First pass of this sweep surfaced an unrelated gap in the test
+  harness itself -- two inputs, `no_firsttime_zero`/`auto_zero_finishes_only`
+  /`years_to_project`, that `assigned_data()`/the projection reactives read
+  but my test script hadn't set -- not a bug in `app.R`; fixed the test and
+  reran.)
+- **UI checks against the real rendered page**: launched the real app with
+  `shiny::runApp()` on a local port and curled the served HTML -- `HTTP
+  200`; exactly one `id="max_boost"` slider in the page (not duplicated),
+  with no `conditionalPanel`/`display:none` wrapper around it any more
+  (sits as a direct sibling right after `k_floor`'s slider, same as
+  round (7)'s layout, just no longer gated); `data-from="2.82842712474619"`
+  confirms the exact default survives real rendering, not just
+  `as.character(ui)`'s pre-render. Killed the process after curling;
+  nothing left running.
+- `git diff --stat`: only `app.R` touched, +169/-49 lines (mostly doc
+  comments explaining the base-per-family reasoning above).
+
+### Left for Garret
+
+- The Max Boost slider's range (1.01-20) is wide enough to cover every
+  family at the Exponent/Base slider's own max (5) at the default Ramp
+  length (3) with headroom, but an extreme combination of base=5 AND a
+  widened Ramp length (e.g. 6) could in principle want a cap above 20
+  (`5^3=125`) -- not reachable via the automatic nudge (which only fires
+  going into `current`/`pure_power`, using whatever base/ramp are current
+  at that moment) unless you'd already cranked both sliders to their maxes
+  first. Judged not worth a much-wider range for a corner this far from
+  anything realistic; flagging in case Garret wants to stress-test it.
+- Caleb's "no effect" decision is a judgment call per the task's own
+  fallback option, not something Caleb specified -- easy to revisit if
+  Garret/Caleb want a different (necessarily somewhat arbitrary) mapping
+  for an additive k term.
+
+### Files touched
+
+Only `app.R`. Not merged to main, not pushed, not deployed to
+shinyapps.io.
+
+---
+
 ## 2026-10-13 (10) — Dashboard (app.R): corrected Guaranteed-Entry Snapshot placement (un-nested from Multi-Year Projection)
 
 **Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
