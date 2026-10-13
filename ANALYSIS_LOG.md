@@ -42,6 +42,1316 @@ deploys explicitly.
 
 ---
 
+## 2026-10-13 (11) — Dashboard (app.R): generalized Max Boost slider to every formula family (not just Garret's decoupled proposal)
+
+**Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
+
+Garret's feedback on round (6)/(7)'s Max Boost slider: "the Finish Bonus
+Ramp is in the right place but the third one (Max finish-bonus boost
+(multiplier):) only appears when you've selected Garret's version of the
+equation. In fact, K is in pretty much all equations, so the slider
+should appear (and work) regardless." He's right: `k` feeds into every
+`build_ticket_formula()` arm (`lottery_projection.R`) except it enters
+each one differently, and only `garret_decoupled`'s arm was ever wired to
+the adjustable cap -- every other family was stuck on the hardcoded
+`k_cap <- 0.5 * ramp` baked into `derive_k_from_finishes()`.
+
+### What was actually checked before touching anything (per the task's
+explicit instruction to re-read the code, not assume)
+
+Re-read `derive_k_from_finishes()`, `garret_k_cap()`, and every
+`build_ticket_formula()` arm before changing anything. Two things worth
+recording because they contradict a plausible-sounding assumption:
+
+1. **There is no separate selectable "base 3" / "base 4" formula
+   family.** `pure_power` is ONE family, `exp_val ^ (n + k)`, using the
+   SAME shared "Exponent / Base" slider (`input$exp`, default 2) that
+   `current` also uses. The selectInput choice label's "(e.g. 3^(n+k) or
+   4^(n+k))" is just illustrating what moving that slider does, not two
+   separate hardcoded-base families. So there is no meaningful
+   distinction between a "base3 default" and a "base4 default" in the
+   actual code -- both are the same family at different live slider
+   positions.
+2. **`garret_decoupled`'s k-term base is NOT the shared `exp` slider.**
+   Its formula is `exp_val ^ n * 2 ^ (k + s)` -- by the explicit
+   "decoupling" design from the 2026-10-13 "Decoupled formula design"
+   entry, the `2^(...)` factor bounding the veteran bonus is a SEPARATE,
+   always-fixed base 2, independent of whatever `exp_val`/`b` is set to.
+   So this family's cap conversion was already (and remains) `log2(...)`
+   regardless of the Exponent/Base slider -- it does NOT use "the
+   adjustable exp/b input," contrary to what a naive reading of the base
+   math might suggest.
+
+Given (1) and (2), the correct generalization is base-dependent per
+family's actual formula shape, not a single formula applied uniformly.
+
+### The fix
+
+**`garret_k_cap(family, max_boost, exp_val = 2)`** (top of `app.R`) now
+computes a cap for every family except `caleb`:
+```r
+garret_k_cap <- function(family, max_boost, exp_val = 2) {
+  if (identical(family, "caleb")) return(NULL)
+  base_for_cap <- if (identical(family, "garret_decoupled")) 2 else as.numeric(exp_val)
+  log(as.numeric(max_boost), base = base_for_cap)
+}
+```
+- `current` / `pure_power`: `k` shares the exponent with `n`
+  (`exp_val^(n+k+1)` / `exp_val^(n+k)`), so `base_for_cap = exp_val` --
+  the live "Exponent / Base" slider, default 2.
+- `garret_decoupled`: unchanged, `base_for_cap = 2` always (decoupled by
+  design, per above).
+- `caleb`: returns `NULL`, same as `derive_k_from_finishes()`'s own
+  "nothing passed -> use `0.5*ramp`" default -- i.e. **caleb's k keeps
+  exactly today's hardcoded cap, completely unaffected by the Max Boost
+  slider.** Decision, per the task's explicit fallback option: caleb's
+  `k` is additive (`exp_val^n + n*(k+s)`), not an exponent, so there is no
+  base `b` for which "a boost multiplier" has a coherent meaning --
+  capping it via `log_b(max_boost)` would be mathematically arbitrary.
+  Rather than inventing one, the slider is shown (per the task's explicit
+  "should appear regardless" instruction) but documented, right next to
+  it via a `caleb`-only `conditionalPanel` helpText, as having no effect
+  for this family. Lower priority anyway, since `caleb` is already
+  documented elsewhere as "nearly a no-op vs. base4."
+- All 5 call sites (`output$ticketFormula`, `output$kRampPlot`,
+  `base_data()`'s two branches, `output$userTickets`) now pass
+  `input$exp` through to `garret_k_cap()`.
+
+**UI:** the `sliderInput("max_boost", ...)` was un-wrapped from its old
+`garret_decoupled`-only `conditionalPanel` and moved to sit unconditionally
+right after `k_floor` (where round (7) had already relocated it), so it's
+always visible for every family, same position as before. Range widened
+from 1.1-5 to 1.01-20 since `current`/`pure_power` can now drive this
+against a base up to 5 (the Exponent/Base slider's max), not just
+`garret_decoupled`'s ~2x-ish range. A new always-visible `helpText()`
+explains which base the cap applies against per family, and a
+`caleb`-only `conditionalPanel` helpText explains the no-effect decision
+above.
+
+**Default value, and why it had to be exactly `2^1.5`:** the slider's
+default is `2^1.5` (~2.828x), not `2.0`. Derivation: at this app's
+production defaults (`exp = 2`, `k_ramp = 3`), the OLD hardcoded cap was
+`k_cap <- 0.5 * ramp = 1.5`. For the new generalized cap to reproduce that
+*exactly*, `log_2(default_max_boost)` must equal `1.5`, i.e.
+`default_max_boost = 2^1.5`. Checked in R that this round-trips to bit-for-
+bit `1.5` (`log(2^1.5, base = 2) == 1.5` is `TRUE`, not just
+approximately), so there is no floating-point slack between the slider's
+stored value and the cap it produces. Verified the rendered UI actually
+carries this: `as.character(ui)`'s `max_boost` slider shows
+`data-from="2.82842712474619"` to full double precision, not a step-
+rounded `2.8`.
+
+Since `current` and `pure_power` both raise `k` against the exact SAME
+live base (`exp_val`, shared, default 2), this single default (`2^1.5`)
+correctly reproduces the old hardcoded behavior for BOTH families
+simultaneously -- there was never a need for a separate "base3 default"
+vs. "base4 default," because (per the finding above) those aren't actually
+separate families, and the pre-change hardcoded cap (`0.5*ramp`) was never
+family-specific to begin with. `garret_decoupled` keeps its own default of
+`2.0` (base always 2, paired with its own `k_ramp` default of 2 -> `k_cap
+= log2(2) = 1`, the original "2x veteran cap"), unchanged from round (6).
+
+**`observeEvent(input$formula_family, ...)`** (the same one already
+nudging `exp`/`k_ramp` for `garret_decoupled`) gained a second branch:
+switching into `current` or `pure_power` now nudges `max_boost` to
+`input$exp ^ (0.5 * input$k_ramp)`, using WHATEVER `exp`/`k_ramp` are
+currently set to at that moment -- not hardcoded 2/3 -- so that re-
+selecting either family re-centers Max Boost on "today's old rule" given
+the live base/ramp, even after bouncing in from `garret_decoupled` (which
+leaves `exp`/`k_ramp` at 3/2). On a fresh app load (family starts as
+`current`, `ignoreInit = TRUE` so the observer never fires), the slider's
+own built-in default (`2^1.5`) already matches what this branch would
+compute anyway (`2^(0.5*3)`), so there's no discontinuity between the
+static default and the nudge logic. `caleb` is deliberately NOT nudged
+(no effect to nudge toward).
+
+### Critical acceptance test: `current` at its new default still reproduces `Weighted_Finishes` exactly
+
+Re-ran the exact regression `a4e6692` established (default ramp=3,
+floor=0.5 must reproduce 2026's `Weighted_Finishes` column with ZERO
+absolute error), now through the new generalized `garret_k_cap()` path
+instead of the old hardcoded branch, via `shiny::testServer()` against the
+real server function with `formula_family = "current"`, `exp = 2`,
+`k_ramp = 3`, `k_floor = 0.5`, `max_boost = 2^1.5` (the slider's actual new
+default):
+
+```
+n rows: 1256
+max_boost input value: 2.828427
+exp input value: 2
+max abs diff k vs Weighted_Finishes: 0
+ALL EXACT: TRUE
+```
+
+**PASSED.** `max(abs(df$k - as.numeric(df$Weighted_Finishes))) == 0`
+exactly, same zero-error bar `a4e6692` set. This was run and confirmed
+BEFORE anything else was considered done, per the task's explicit
+ordering requirement.
+
+### Further verification
+
+- **Slider's effect is real, not cosmetic**, via `shiny::testServer()`
+  comparing `output$userTickets` at default vs. a moved Max Boost, same
+  example applicant (`apps=2, finishes=2, volunteer=0, trailwork=0`)
+  throughout:
+  - `current` (exp=2, k_ramp=3): default (2.828) -> 16 tickets; moved to
+    4.0 -> 20.16 tickets. Changed, as expected (`k` rises from 1 to
+    1.333).
+  - `pure_power` at exp=4 (i.e. "base 4"): default (`4^1.5=8`) -> 64
+    tickets; moved to 16.0 -> 101.59 tickets. Changed.
+  - `caleb` at exp=3: default (2.828) -> 11 tickets; moved to 100 -> 11
+    tickets. **Identical**, confirming the documented no-effect decision
+    holds in practice, not just in the helper function.
+  - `garret_decoupled` (exp=3, k_ramp=2): mb=2.0 -> 18 tickets; mb=4.0 ->
+    36 tickets (exactly 2x, as expected -- unchanged from round (6)'s own
+    verification).
+- **No NAs/errors across all families x a range of Max Boost values**:
+  `shiny::testServer()` swept all 4 formula families x 6 `max_boost`
+  values (1.05, 2.0, `2^1.5`, 5, 10, 19.9) x all 4 data years
+  (2023-2026) = 96 combinations, checking `base_data()` (no NA/non-finite
+  tickets), `assigned_data()` (renders, nonzero rows), `output$userTickets`
+  (finite), and `output$ticketFormula` (renders) at each. **0 errors out
+  of 96.** (First pass of this sweep surfaced an unrelated gap in the test
+  harness itself -- two inputs, `no_firsttime_zero`/`auto_zero_finishes_only`
+  /`years_to_project`, that `assigned_data()`/the projection reactives read
+  but my test script hadn't set -- not a bug in `app.R`; fixed the test and
+  reran.)
+- **UI checks against the real rendered page**: launched the real app with
+  `shiny::runApp()` on a local port and curled the served HTML -- `HTTP
+  200`; exactly one `id="max_boost"` slider in the page (not duplicated),
+  with no `conditionalPanel`/`display:none` wrapper around it any more
+  (sits as a direct sibling right after `k_floor`'s slider, same as
+  round (7)'s layout, just no longer gated); `data-from="2.82842712474619"`
+  confirms the exact default survives real rendering, not just
+  `as.character(ui)`'s pre-render. Killed the process after curling;
+  nothing left running.
+- `git diff --stat`: only `app.R` touched, +169/-49 lines (mostly doc
+  comments explaining the base-per-family reasoning above).
+
+### Left for Garret
+
+- The Max Boost slider's range (1.01-20) is wide enough to cover every
+  family at the Exponent/Base slider's own max (5) at the default Ramp
+  length (3) with headroom, but an extreme combination of base=5 AND a
+  widened Ramp length (e.g. 6) could in principle want a cap above 20
+  (`5^3=125`) -- not reachable via the automatic nudge (which only fires
+  going into `current`/`pure_power`, using whatever base/ramp are current
+  at that moment) unless you'd already cranked both sliders to their maxes
+  first. Judged not worth a much-wider range for a corner this far from
+  anything realistic; flagging in case Garret wants to stress-test it.
+- Caleb's "no effect" decision is a judgment call per the task's own
+  fallback option, not something Caleb specified -- easy to revisit if
+  Garret/Caleb want a different (necessarily somewhat arbitrary) mapping
+  for an additive k term.
+
+### Files touched
+
+Only `app.R`. Not merged to main, not pushed, not deployed to
+shinyapps.io.
+
+---
+
+## 2026-10-13 (10) — Dashboard (app.R): corrected Guaranteed-Entry Snapshot placement (un-nested from Multi-Year Projection)
+
+**Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
+
+Garret's feedback on round (9) below: "Why would '(this year's data, no
+projection needed)' be instilled in the 'Multi-year projection' space?" He
+was right, and round (9)'s placement was a mistake, not what he asked for.
+Round (9) moved the `wellPanel(h4("Guaranteed-Entry Snapshot (this year's
+data, no projection needed)"), textOutput("autoSnapshot"))` -- wrapped in
+`conditionalPanel(condition = "input.auto_at != 'none'", ...)` -- from the
+top of `mainPanel()` to *inside* the collapsible "Multi-Year Projection"
+`tags$div(id = "projectionPanel", ...)` block, reasoning that both sections
+were "about the same guaranteed-entry rule." That reasoning doesn't survive
+contact with the box's own label: a box that explicitly advertises "no
+projection needed" has no business living inside the one section whose
+entire purpose is projection. Self-contradictory UI, exactly as Garret said.
+
+**Fix:** moved the same `conditionalPanel(...)`-wrapped `wellPanel(...)`
+(content and conditional wrapper both unchanged from round (9) -- only the
+wrapper was the right call, not the location) out of `projectionPanel`
+entirely. It's now a standalone sibling element in `mainPanel()`'s own
+flow, placed in the gap between the odds-results content above (Lottery
+Odds Summary / Detailed Odds / Distribution of Odds / the two "Picks by..."
+histogram sections) and the "Show/Hide Multi-Year Projection" button +
+`projectionPanel` div below -- not nested inside any projection-specific
+wrapper, div, or collapsible panel. This also fixes the side effect round
+(9) flagged but didn't resolve: since the snapshot box is no longer inside
+`projectionPanel`, it no longer depends on that section's collapsible state
+at all -- it renders as soon as a guaranteed-entry rule is selected,
+regardless of whether "Multi-Year Projection" is expanded or collapsed.
+
+**Verification:**
+- Rendered the real `ui` object (`as.character(ui)`), confirmed by string
+  position that "Guaranteed-Entry Snapshot" (offset 21279) falls after
+  "Distribution of Odds" (offset 19213) and before both the "Show/Hide
+  Multi-Year Projection" button (offset 21561) and the "Multi-Year
+  Projection (Men's pool)" collapsible-title div (offset 21674) -- i.e.
+  strictly in the gap between the odds-results content and the projection
+  content, in document order.
+- Parsed the rendered HTML with `xml2::read_html()` and confirmed
+  structurally (not just by string offset) that the `h4` containing
+  "Guaranteed-Entry Snapshot" is **not** a descendant of
+  `//div[@id="projectionPanel"]` (`xml_find_all(proj_node, ".//*[contains
+  (text(), 'Guaranteed-Entry Snapshot')]")` returns zero matches) -- it is
+  a true sibling, not nested inside the projection panel's subtree. Also
+  confirmed the `conditionalPanel` wrapper survived the move intact:
+  its ancestor div still carries `data-display-if="input.auto_at !=
+  'none'"`.
+- `shiny::testServer()`: set a full explicit input list (formula_family =
+  "current", year_select = "2026", default Nm/Nw, deterministic odds
+  method, etc.) and checked `output$autoSnapshot` both with `auto_at =
+  "none"` (renders "No automatic-entry guarantee is active.") and
+  `auto_at = "3"` (renders "Guaranteed entry at 3+ prior losses, using 2026
+  data: 61 men already qualify (vs. 95 men's slots total), 11 women already
+  qualify (vs. 103 women's slots total)."). Both render without error; only
+  unrelated ggplot cosmetic warnings ("Removed N rows ... geom_point()")
+  from other reactive outputs appeared, same as round (9) saw, not errors.
+- `git diff` confirms the only change is removing the `wellPanel`/
+  `conditionalPanel` block from inside `projectionPanel` and re-inserting
+  the identical block (same conditional, same wellPanel contents) a few
+  lines earlier, as a sibling `br()`-separated element -- no other app.R
+  content touched.
+
+---
+
+## 2026-10-13 (9) — Dashboard (app.R): moved Guaranteed-Entry Snapshot out of the top of the results
+
+**Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
+
+Garret's feedback: it's bad UI to have the "Guaranteed-Entry Snapshot"
+`wellPanel()` as the very first thing in `mainPanel(...)`, above even
+"Lottery Odds Summary" -- every visit to the app led with a usually-inactive
+box ("No automatic-entry guarantee is active.") before showing any of the
+core odds results.
+
+**Fix:** removed the `wellPanel(h4("Guaranteed-Entry Snapshot..."),
+textOutput("autoSnapshot"))` from the top of `mainPanel()` and moved it
+into the existing `projectionPanel` block, immediately before `h5("Does
+the current guaranteed-entry rule become oversubscribed?")`. That section
+is about the exact same guaranteed-entry rule (just the forward-looking,
+multi-year version), so the current-year snapshot of the rule's state now
+sits right next to its own longer-run analysis instead of hogging the top
+of the page. `mainPanel()` now leads with "Lottery Odds Summary" as its
+first content, as requested.
+
+**Also did (the optional part of the task):** wrapped the moved
+`wellPanel()` in `conditionalPanel(condition = "input.auto_at != 'none'",
+...)`. Reasoning: `autoSnapshot` always renders *something* -- when no
+guarantee rule is selected (the default, `auto_at == "none"`) it just
+prints "No automatic-entry guarantee is active." Now that the box lives
+next to the oversubscription analysis rather than at the top of the page,
+that empty-state message would just be dead space sitting above "Does the
+current guaranteed-entry rule become oversubscribed?" every time someone
+is *not* evaluating a guarantee rule -- which, per the UI's own `auto_at`
+default, is most of the time. Hiding it entirely until a rule is actually
+selected (`"2"`/`"3"`/`"4"`, i.e. guaranteed by 3rd/4th/5th try) means the
+box only ever appears when it has something concrete to report, consistent
+with how the "does it become oversubscribed" table/plot below it already
+behave (`output$autoTierTable` and `output$autoTierPlot` already return
+`NULL` when `auto_at == "none"` -- see the existing `if (input$auto_at ==
+"none") return(NULL)` guards in the server code around line 1259 (now
+shifted a few lines by this diff) -- so this just extends the same
+"nothing to show when no rule is active" convention to the snapshot box
+instead of leaving it as the one exception that always renders).
+
+One side effect worth flagging: the snapshot box is now inside the
+collapsible "Multi-Year Projection" `projectionPanel` div (toggled by the
+"Show/Hide Multi-Year Projection" button), so it's collapsed/hidden by
+default along with the rest of that section rather than always-visible on
+page load. This was a deliberate tradeoff, not an oversight -- the
+alternative (pulling it out of the collapsible div so it's always visible
+but still lower on the page) would have left it floating awkwardly between
+"Picks by Weighted Finishes" and the collapsible projection button, further
+from the oversubscription content it's actually paired with. If Garret
+wants it visible without expanding "Multi-Year Projection," the fix is to
+move the `conditionalPanel(...)` block just above the
+`actionButton("toggleProjection", ...)` line instead of inside
+`projectionPanel`'s `tags$div` -- flagging here rather than guessing which
+he'd prefer.
+
+**Verification:**
+- Rendered the real `ui` object (`as.character(ui)`) and checked string
+  positions: "Guaranteed-Entry Snapshot" now appears *after* "Lottery Odds
+  Summary" in the HTML (previously before), and only 184 characters before
+  "Does the current guaranteed-entry rule become oversubscribed?" -- i.e.
+  immediately adjacent, inside the same `projectionPanel` div. Confirmed
+  the `conditionalPanel` renders as `data-display-if="input.auto_at !=
+  'none'"` wrapping the `well` div in the output HTML.
+- `shiny::testServer()`: set a full explicit input list (`current` family,
+  2026 data, deterministic odds, etc.) and checked `output$autoSnapshot`
+  both with `auto_at = "none"` (renders "No automatic-entry guarantee is
+  active.") and `auto_at = "3"` (renders "Guaranteed entry at 3+ prior
+  losses, using 2026 data: 61 men already qualify (vs. 96 men's slots
+  total), 11 women already qualify (vs. 114 women's slots total)."). Both
+  render without error; only unrelated ggplot cosmetic warnings
+  ("Removed N rows ... geom_point()") from other reactive outputs appeared,
+  not errors.
+- `git diff` confirms the only change is the `wellPanel` relocation plus
+  its new `conditionalPanel` wrapper and an explanatory comment -- no
+  server-side logic touched.
+
+## 2026-10-13 (8) — Dashboard (app.R): un-tabbed the sidebar (partial revert of `51e29e8`)
+
+**Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
+
+Garret asked for one specific piece of `51e29e8` (round (6) below) undone:
+the `tabsetPanel("Ticket Formula Designer" / "Observed Applicant Stats")`
+that split the sidebar into two tabs. He wants "Observed Applicant Stats"
+back to a plain stacked block below the formula-designer controls, as it
+was before that commit -- just not as tabs. The other two things
+`51e29e8` did (the `ticketFormula` string-leak fix, and adding the
+adjustable Max Boost slider) are unaffected and explicitly kept, including
+`cc14a13`'s later move of that slider down next to `k_ramp`/`k_floor`.
+
+**Fix:** removed the `tabsetPanel(type = "tabs", ...)` wrapper and its two
+`tabPanel(...)` calls, along with the comment block explaining the tab
+split (now stale) and the `br()` that was added right after the first
+`tabPanel(` open. The "Observed Applicant Stats" block (`statsTitle`,
+`avgAppsStats`, `avgFinishesStats`, `trailworkStats`, `volunteerStats`)
+moved back to its original position -- directly after the `hr()` following
+`verbatimTextOutput("userTickets")` and before `h4("Multi-Year Projection
+(Men)")`, with an `hr()` on both sides, matching the pre-`51e29e8` layout
+exactly (confirmed against `git show 51e29e8^:app.R`). Nothing else in the
+sidebar, and nothing server-side, changed.
+
+**Verification:**
+- Rendered the real `ui` object (`as.character(ui)`): no `tabbable`,
+  `tab-pane`, or `nav-tabs` CSS classes anywhere in the HTML (the tabset is
+  gone); every control/output id that was there before (`formula_family`
+  through `runProjection`, including `max_boost`, `k_ramp`, `k_floor`,
+  `statsTitle`, and the four stats `textOutput`s) is still present; and the
+  DOM order confirms `userTickets` precedes `statsTitle` precedes
+  "Multi-Year Projection" text, i.e. stats sit between the example-applicant
+  preview and the projection controls, as before.
+- Re-checked `k_ramp` < `k_floor` < `max_boost` adjacency (593 characters
+  apart) in the rendered HTML -- `cc14a13`'s slider relocation is untouched
+  by this revert.
+- `shiny::testServer()` across all 4 formula families (`current`,
+  `pure_power`, `caleb`, `garret_decoupled`) with a full set of explicit
+  inputs: `base_data()` and `assigned_data()` both return 1256 rows for
+  every family, `output$userTickets` renders non-empty text, and
+  `output$ticketFormula` has no leaked `[` bracket for any family except
+  `pure_power`'s legitimate, unchanged `[service points have no effect in
+  this family]` caveat -- confirming the string-leak fix from `51e29e8`
+  is still intact and this revert touched none of that logic.
+- `git diff` against the pre-revert tree shows exactly the tabsetPanel/
+  tabPanel removal and the stats block moving back in place -- no other
+  lines changed.
+
+## 2026-10-13 (7) — Dashboard (app.R): moved Max Boost slider next to Ramp/Floor
+
+**Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
+
+Pure layout fix, no logic change. Garret reported that the "Max
+finish-bonus boost (multiplier)" slider (`max_boost`, added in round (6)
+below) was sitting away from the other two sliders that drive the same
+k(finishes) mechanic -- `k_ramp` ("Ramp length") and `k_floor` ("Floor"),
+from the "Finish-Bonus Ramp (k)" section (`a4e6692`). `max_boost` lived up
+in the `garret_decoupled`-only `conditionalPanel` right after the formula
+family selector (alongside `v_scale`/`t_scale`/`t_cap`), several hundred
+lines of UI away from `k_ramp`/`k_floor` further down the sidebar.
+
+**Fix:** removed the `max_boost` `sliderInput` from that upper
+`conditionalPanel` (which still has `v_scale`/`t_scale`/`t_cap`, unchanged)
+and added it immediately after `k_floor`'s `sliderInput`, in its own small
+`conditionalPanel` (same `condition = "input.formula_family ==
+'garret_decoupled'"` as before, so it's still only shown for that family)
+-- right before `plotOutput("kRampPlot", ...)`. Order top-to-bottom is now
+Ramp, Floor, Max Boost, as requested. No change to any server-side logic,
+`garret_k_cap()`, `derive_k_from_finishes()`, or help text content -- only
+where the slider's markup sits in the sidebar.
+
+**Verification:**
+- Rendered the real `ui` object and checked `id="k_ramp"`/`id="k_floor"`/
+  `id="max_boost"` positions in the HTML string: order is `k_ramp` <
+  `k_floor` < `max_boost`, with only ~600 characters (the wrapping
+  `conditionalPanel` div) between `k_floor` and `max_boost`, versus ~5,100
+  characters previously separating `max_boost` from its old neighbor
+  `v_scale`.
+- Launched the real app with `shiny::runApp()` on a local port and curled
+  the served page: same adjacency check against actual served HTML (not
+  just pre-render) -- confirmed. Killed the process afterward; nothing left
+  running.
+- `shiny::testServer()` regression check across all 4 formula families
+  (`current`, `pure_power`, `caleb`, `garret_decoupled`) with a full set of
+  explicit inputs (year, odds method, exponent, k_ramp/k_floor,
+  v_scale/t_scale/t_cap, max_boost, auto-entry toggles, odds toggles): every
+  family's `output$ticketFormula`, `output$userTickets`, `base_data()`
+  (1256 rows), and `assigned_data()` (1256 rows) still render/compute with
+  no errors. Also checked `garret_decoupled` at `max_boost = 2.0` vs. `4.0`
+  with `finishes = 2` -- both compute without error (k scales as expected
+  with the cap, same as round (6)'s math, which is unchanged by this move).
+
+## 2026-10-13 (6) — Dashboard (app.R): fixed formula-display leak, split sidebar into tabs, added adjustable Max Boost slider
+
+**Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
+
+Garret ran this worktree's app (after round (5) below) and reported three
+more issues, all now fixed in `app.R`:
+
+### 1. Formula display leaking explanatory text (and a stray trailing character)
+
+Garret saw the `garret_decoupled` formula box render something like
+`Tickets = 3^0 * 2^(0 + 0 + 0) [b=3 controls only n-steepness; the 2^(...)
+is a separate, fixed base-2 veteran/service multiplier, capped at 2x via
+k] 2` -- explanatory/reasoning text and a stray character leaking into
+what's supposed to be a clean math expression.
+
+**Root cause:** `output$ticketFormula`'s `switch()` arm for
+`garret_decoupled` built its display string with `paste0(...)`, and that
+same `paste0()` call had a bracketed explanatory aside
+(`"  [b=", exp_val, " controls only n-steepness; ...capped at 2x via
+k]"`) tacked directly onto the end of the formula text -- i.e. commentary
+that belongs in the UI's help text got concatenated into the live formula
+string itself, a leftover from how that arm was originally drafted. (We
+could not reproduce a literal trailing "2" character after the bracket
+from the exact committed code via `shiny::testServer()` -- the committed
+string ends in `...via k]` with nothing after it -- but whatever Garret
+saw trailing there is removed along with the rest of the bracket, since
+the fix deletes everything after the formula's closing parenthesis.)
+
+**Fix:** the `garret_decoupled` arm's `paste0()` now stops at the closing
+`)` of `2^(...)` -- `paste0(exp_val, "^", apps, " * 2^(", k_val, " + ",
+v_contrib, " + ", t_contrib, ")")` -- nothing else appended. The
+explanation of what b/k/v/t mean already lived in two places that are
+NOT the formula display: the always-visible (for this family)
+`conditionalPanel` helpText right above the v_scale/t_scale/t_cap sliders,
+and the collapsible "Finish-Bonus Ramp" help text (added in round (4)
+below). Both already existed; no new help text block was created for
+this fix, only the formula string was cleaned up.
+
+**Verification:** `shiny::testServer()` against the real server function,
+`garret_decoupled` at several slider combinations (finishes=2/max_boost=2,
+finishes=2/max_boost=4) -- formula text contains no `[` character and no
+leaked "capped at 2x via k" substring. Also spot-checked `current` (apps=4,
+finishes=2, volunteer=7, trailwork=3), `pure_power` (exp=4), and `caleb`
+(exp=3, apps=3) -- all three render clean (no stray brackets); `pure_power`
+intentionally keeps its own short, accurate `[service points have no
+effect in this family]` note, which is a legitimate behavioral caveat, not
+a reasoning-log leak, and Garret didn't flag it. Also rendered the real
+`ui`/launched the real app and curled the served page -- confirmed the
+string `"capped at 2x via k"` no longer appears anywhere in the rendered
+HTML.
+
+### 2. Starker visual separation: formula designer vs. observed stats, via tabs
+
+Garret's "Observed Applicant Stats" block (the four `textOutput`s showing
+real-data averages/percentages for the selected year) and the "ticket
+formula designer" controls actually both live in the **sidebar** (not the
+main panel -- `output$statsTitle`/`avgAppsStats`/etc. are rendered inside
+`sidebarPanel()`, between the "Example Applicant Profile" section and
+"Multi-Year Projection"), stacked with only an `hr()` between them. Garret
+wants them on genuinely separate tabs, since one is "what ticket formula
+should we use" and the other is "what does the real historical applicant
+data look like."
+
+**Fix:** wrapped the sidebar's contents in `shiny::tabsetPanel(type =
+"tabs", ...)` with two tabs:
+- **"Ticket Formula Designer"**: everything that drives or explores the
+  formula -- Lottery Parameters (formula family selector, the live
+  `ticketFormula` display, Exponent/Base, the `current`-only Service-Credit
+  Multiplier, the `garret_decoupled`-only v/t/Max-Boost controls), Nm/Nw,
+  the Finish-Bonus Ramp (k) section and its plot, Discrete Rules, Odds
+  Calculation Method, the Example Applicant Profile sliders and
+  `userTickets` preview, and the Multi-Year Projection controls (kept here,
+  not in the stats tab, since it's a formula-driven exploration tool, not
+  raw data).
+- **"Observed Applicant Stats"**: just the four real-data `textOutput`s.
+
+**Why `tabsetPanel` and not `bslib::navset_tab`/`navbarPage`:** this app
+`library(bslib)`s only for `bs_theme()` (theming) -- it has never used any
+of bslib's own navigation components, and introducing one here would be a
+second "how do tabs work in this app" idiom for no benefit. Plain
+`shiny::tabsetPanel()` needs no change to the outer `fluidPage()` /
+`sidebarLayout()` / `sidebarPanel()` / `mainPanel()` structure (unlike
+`navbarPage()`, which would require restructuring the whole page) and
+renders correctly under the existing `bs_theme(bootswatch = "minty")`.
+Shiny's `tabsetPanel()` hides inactive tabs with CSS only -- it does not
+destroy/recreate the DOM elements inside them -- so every input keeps its
+current value and every output keeps rendering regardless of which tab is
+selected; this is exactly the "don't lose reactive state" requirement.
+
+**Verification:**
+- Rendered the real `ui` object: confirms a single `class="tabbable"`
+  tabset, two `tab-pane` divs (one `tab-pane active`), `"Ticket Formula
+  Designer"` and `"Observed Applicant Stats"` tab labels both present, and
+  the `max_boost` slider's `id="max_boost"` inside the formula-designer
+  tab.
+- Launched the real app with `shiny::runApp()` on a local port and curled
+  the served page: same checks pass against the actual served HTML, not
+  just the pre-render.
+- `shiny::testServer()` smoke test: switched `formula_family` through all
+  4 values (`current`/`pure_power`/`caleb`/`garret_decoupled`) with the
+  app now running the tabbed UI -- `output$ticketFormula`,
+  `output$userTickets`, `base_data()`, and `assigned_data()` all still
+  render/compute correctly for every family (no errors, no unexpected
+  NAs), confirming the tab restructuring didn't silently break any
+  existing reactive wiring.
+- Killed the temporary local app process after curling it; nothing left
+  running.
+
+### 3. "Max Boost" slider: generalizing the hardcoded 2x veteran cap
+
+The `a4e6692` commit's k ramp/floor mechanism, as used by
+`garret_decoupled` (ramp defaulted to 2 for this family), caps k at a
+fixed value of 1 once you reach `ramp` finishes -- `2^1 = 2x`, matching
+Garret's explicit design goal ("2x is the ideal max benefit for being a
+vet," discussed in round (3)'s entry below). Garret now wants that cap
+itself adjustable, not hardcoded.
+
+**Math:** `derive_k_from_finishes(previous_finishes, ramp, floor_val,
+k_cap = NULL)` gained a `k_cap` parameter. Previously the function always
+used a fixed per-finish step of 0.5 (`k(finishes) = 0.5 * min(finishes,
+ramp)` up to the ramp, then `floor_val`). Now the per-finish step is
+derived from the cap: `step <- k_cap / ramp`, so `k` ramps linearly from 0
+up to exactly `k_cap` over `ramp` finishes, then drops to `floor_val`
+exactly as before. When `k_cap` is left `NULL` (every family except
+`garret_decoupled`), the function computes `k_cap <- 0.5 * ramp`
+internally first -- which reproduces `step = 0.5` exactly, i.e. today's
+rule byte-for-byte, for every caller that doesn't pass `k_cap` explicitly.
+
+A new `garret_k_cap(family, max_boost)` helper (top of `app.R`, right
+below `derive_k_from_finishes()`) is the one place that converts the
+slider's intuitive multiplier unit into the exponent unit the ramp
+function needs: `k_cap <- log2(max_boost)`, returning `NULL` for every
+family except `garret_decoupled` (so those families are completely
+unaffected, same as the `k_cap = NULL` default above). Every call site
+that computes k for this family now passes `k_cap =
+garret_k_cap(input$formula_family, input$max_boost)`:
+`output$ticketFormula`, `output$kRampPlot`'s "Your settings" line,
+`base_data()` (both the 2026 `Weighted_Finishes` branch and the
+2023-2025 raw-`Previous_Finishes` branch), and `output$userTickets`. The
+fixed "Current production rule (ramp 3, floor 0.5)" reference line in
+`kRampPlot` is untouched (always `k_cap = NULL`, i.e. today's rule,
+regardless of any slider).
+
+**UI:** added `sliderInput("max_boost", "Max finish-bonus boost
+(multiplier):", min = 1.1, max = 5, value = 2.0, step = 0.1)` inside the
+existing `garret_decoupled`-only `conditionalPanel`, alongside
+`v_scale`/`t_scale`/`t_cap` (same conditional pattern, same panel -- not a
+new panel). Labeled in the multiplier unit ("2x", "4x") per the task's
+explicit instruction, since that's the intuitive unit Garret thinks in,
+not the underlying `k_cap` exponent. The floor slider (`k_floor`) is
+completely unaffected -- it's a separate parameter, untouched by this
+change, and still controls what k drops to once past the ramp.
+
+Per the task's instruction not to create a second help block: the Max
+Boost explanation was added to the **existing** collapsible "Finish-Bonus
+Ramp" help text (the `kRampInfoPanel` div added in round (4) below) --
+new sentences were appended to that one `helpText()` call, explaining
+`k_cap = log2(max_boost)`, that the default 2.0x reproduces the old
+hardcoded behavior, and that the floor is unaffected. The non-collapsible
+`conditionalPanel` helpText just above the new slider (which already
+described the 2x cap) was updated in place so it no longer claims the cap
+is "exactly 2x" (now inaccurate) -- it instead points at the Max Boost
+slider, without duplicating the longer explanation.
+
+**Verification (exact-match checks, same style as `a4e6692`'s
+ramp/floor verification):**
+- Default `max_boost = 2.0`: `garret_k_cap()` returns `log2(2) = 1`
+  exactly; `derive_k_from_finishes(2, ramp=2, floor_val=0.5, k_cap=1)` at
+  `finishes=2` (the ramp cap, default ramp for this family) gives
+  `k=1` exactly, same as the old hardcoded behavior. Via
+  `shiny::testServer()`, a 2-finish veteran's `userTickets` value vs. a
+  0-finish rookie's, both at `max_boost=2.0`, gave a ratio of exactly
+  `2.0000000000` (not rounded-away-from-2) -- confirms the default
+  reproduces today's behavior exactly, not approximately.
+- `max_boost = 4.0`: `k_cap = log2(4) = 2` exactly; a 2-finish veteran's
+  ticket count vs. the same rookie gave a ratio of exactly
+  `4.0000000000` -- confirms the slider actually changes the realized
+  multiplier, and by the predicted amount (`2^2 = 4`, not `2^(something
+  else)`).
+- `max_boost = 3.0`, `finishes = 10` (past the ramp, into the floor):
+  `derive_k_from_finishes(10, ramp=2, floor_val=0.5, k_cap=log2(3))`
+  returns exactly `0.5` -- confirms the floor is untouched by `max_boost`
+  regardless of what the cap is, and the floor/rookie ticket ratio is
+  exactly `2^0.5 = 1.41421356...` (matched to the ticket-formula's own
+  display rounding, 1.41, in the `testServer` run; matched exactly via a
+  direct call to `derive_k_from_finishes()`/`garret_k_cap()` bypassing
+  that display rounding).
+- Edge values `max_boost = 1.1` and `max_boost = 5.0` on real 2026 data:
+  `base_data()$tickets` has no NA/Inf values at either extreme, and
+  `assigned_data()` has no NA odds among `SelectionStatus == "Lottery"`
+  rows -- confirms the generalization doesn't introduce degenerate
+  tickets at the slider's range endpoints.
+
+### Files touched
+
+Only `app.R`. No changes to `lottery_projection.R` (it only ever consumes
+an already-computed `k` value, so it needed no changes for the Max Boost
+generalization) or any data file. Not merged to main, not pushed, not
+deployed to shinyapps.io.
+
+---
+
+## 2026-10-13 (5) — Dashboard (app.R): year selector default corrected to 2026
+
+**Status: local changes only, in a git worktree, NOT committed to main/pushed/deployed.**
+
+Correction from Garret on entry (4) below: the previous round verified
+`selected = "2025"` on `selectInput("year_select", ...)` and left it alone
+as already-correct, but Garret actually wants the default to be **2026**,
+not 2025. Changed `selected = "2025"` to `selected = "2026"` (line ~300 of
+`app.R`). Re-rendered the real `ui` object (`as.character(ui)`) and
+confirmed the served HTML now shows `<option value="2026"
+selected>2026</option>`. One-line fix, verified the same way as last
+round.
+
+---
+
+## 2026-10-13 (4) — Dashboard (app.R): fixed 3 UI issues Garret hit running the app in RStudio
+
+**Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**
+Garret should review the diff and deploy himself.
+
+Garret ran this worktree's app.R in RStudio (after the (3) decoupled-formula
+entry below) and reported three UI problems. Investigated each before
+touching anything, per usual practice on this branch (extend, don't
+reimplement):
+
+1. **"Default data year should be 2025, not whatever it currently
+   defaults to."** Checked `selectInput("year_select", ...)` -- it already
+   reads `selected = "2025"`, and no `updateSelectInput()` anywhere
+   overrides it. Rendered the real `ui` object (`htmltools::doRenderTags`)
+   and also ran the live app and curled its served HTML: both show
+   `<option value="2025" selected>2025</option>`. **No code change was
+   needed here** -- this was already correct in the (3) commit Garret was
+   running. Likely explanation: Garret saw an older cached session, or
+   conflated this with issue 2 below (see next item). Left as-is; verified
+   working, not just assumed.
+
+2. **"The ticket-formula display is static text... shows 2^(0+0+1) +
+   2*log(0+0+1) no matter what."** Read `output$ticketFormula` closely: it
+   already builds its string from `input$exp`, `input$mult`,
+   `input$formula_family`, `input$odds_toggles`, and the Example Applicant
+   Profile sliders (`apps`/`finishes`/`volunteer`/`trailwork`, via
+   `derive_k_from_finishes()`), with a `switch()` arm per formula family
+   including `garret_decoupled`'s `b^n * 2^(k+v+t)` shape -- fully dynamic,
+   generic across all four families already. The catch: **every one of
+   those sliders defaults to 0**, so on first load (before touching any
+   slider) it renders exactly `Tickets = 2^(0 + 0 + 1) + 2 * log(0 + 0 +
+   1)` -- precisely what Garret described. That's the formula correctly
+   evaluated at the all-zero example profile, not a static string; it's
+   indistinguishable from "hardcoded zeros" unless you actually move a
+   slider. **No code change was needed here either** -- confirmed by
+   running `shiny::testServer()` against the real server function (not a
+   reimplementation) across 5 scenarios: `current` at defaults, `current`
+   with apps=4/finishes=2/volunteer=7/trailwork=3 (text changed from the
+   defaults case), `pure_power` at exp=4, `caleb` at exp=3/apps=3, and
+   `garret_decoupled` at b=3/n=2/k=1/v=2/t=0.5 -- every family's displayed
+   string correctly substituted the live values, and swapping
+   `formula_family` alone (same example sliders) also changed the text.
+   Logged here anyway, with the verification, since Garret's report named
+   this as a problem and the fix is "move a slider and look again," not a
+   code change.
+
+3. **"Finish-Bonus Ramp explanation text should be collapsible."** This
+   one was real: the `a4e6692` commit's helpText (the k ramp/floor
+   explanation) rendered unconditionally, permanently taking up sidebar
+   space. Fixed by reusing the EXACT toggle idiom already used for every
+   other collapsible section in this app (`introPanel`, `avgOddsPanel`,
+   `oddsPanel`, `oddsDistPanel`, `histAppsPanel`, `histFinPanel`,
+   `projectionPanel`): wrapped the helpText in `hidden(div(id =
+   "kRampInfoPanel", ...))` so it starts closed, and added an
+   `actionLink("toggleKRampInfo", "ℹ️ More info on the ramp/floor shape")`
+   bound to a new `observeEvent(input$toggleKRampInfo, {
+   shinyjs::toggle(id = "kRampInfoPanel") })` in the server, right next to
+   the near-identical `toggleIntro` observer. No new toggle mechanism
+   introduced (no `bslib::accordion`, no `<details>`) -- this app already
+   has one pattern for "collapsible section," so this just adds a seventh
+   instance of it rather than an eighth kind of thing.
+
+### Verification (all three, against the real app.R)
+
+- Rendered the actual `ui` object to HTML (`htmltools::doRenderTags`) and
+  separately launched the real app with `shiny::runApp()` on a local port
+  and `curl`'d the served page -- both confirm `year_select` shows 2025
+  selected, and show the new `toggleKRampInfo` link plus a
+  `kRampInfoPanel` div with class `shinyjs-hide` (i.e. hidden by default,
+  containing the "DROPS BACK DOWN to a floor" text, confirming the content
+  survived the refactor and is only hidden, not deleted).
+- Used `shiny::testServer()` against the real server function for issue 2,
+  covering `current`/`pure_power`/`caleb`/`garret_decoupled` (4 of the 4
+  families) at distinct slider settings, plus an explicit
+  before/after-slider-move comparison within `current` and an explicit
+  same-sliders-different-family comparison -- all showed the displayed
+  formula text changing as expected, no family left static.
+- Killed the temporary local app process after curling it; nothing left
+  running.
+
+### Files touched
+
+Only `app.R`: added the `toggleKRampInfo`/`kRampInfoPanel` UI (sidebar,
+"Finish-Bonus Ramp (k)" section) and its server `observeEvent`. No changes
+to `lottery_projection.R` or any data file. Not merged to main, not
+pushed, not deployed to shinyapps.io.
+
+---
+
+## 2026-10-13 (3) — Dashboard (app.R): added Garret's decoupled proposal as a selectable formula family
+
+**Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**
+Garret should review the diff and deploy himself.
+
+### What this is
+
+Implements the `Tickets = b^n * 2^(k+v+t)` design from main's 2026-10-13
+"Decoupled formula design; fact-checking Garret's draft reply to Caleb" log
+entry as a fourth, selectable `formula_family` option in the dashboard
+(alongside `current`/`pure_power`/`caleb` -- Caleb's own `4^n + n(k+v+t)`
+proposal is untouched). `b` is NOT a new slider -- it reuses the existing
+"Exponent / Base" slider every other family already shares, per the task's
+explicit instruction, with a small `observeEvent(input$formula_family, ...)`
+that nudges it (and `k_ramp`) to this family's own proposed defaults the
+moment you select it. The `2^(...)` multiplier is a second, independent
+base, ALWAYS fixed at 2 regardless of `b` -- its only job is bounding the
+max "being a veteran" bonus at exactly 2x, by construction, per the
+decoupling insight already worked out in that log entry
+(`2^(k+v+t) == 2^k * 2^(v+t)`, so capping k alone is not broken by leaving
+v uncapped in the same written exponent).
+
+### k: reused the existing ramp/floor knob, just a different default
+
+No new k-ladder was invented. `derive_k_from_finishes()` (built in this
+worktree's earlier 2026-10-13 "generalized the finish bonus" commit,
+`a4e6692`) already generalizes today's production k-rule into a
+ramp/floor pair. For this family, the only change is the DEFAULT: the same
+`observeEvent` above sets `k_ramp` to 2 (not 3) the instant you pick this
+family, so the ladder becomes finishes 0/1/2/3+ -> k = 0/0.5/1/0.5(floor)
+-- reaching the k=1 cap at 2 finishes, which is exactly what makes
+`2^1 = 2x` the hard ceiling on the veteran bonus at 2 finishes. The
+ramp/floor sliders stay visible and adjustable for every family, same as
+before; this is a UI nudge on entry, not a second code path, and it does
+NOT force the value back if you then move the slider yourself, nor does it
+restore b/ramp to 2/3 when you switch away -- consistent with how this app
+already treats every other shared slider (e.g. nothing resets "mult" when
+you leave "current").
+
+### v and t: new, independent scale/cap controls, only shown for this family
+
+Added three new sidebar sliders (`v_scale`, `t_scale`, `t_cap`), inside a
+`conditionalPanel` keyed to `formula_family == 'garret_decoupled'` so they
+don't clutter the UI for the other three families, which don't use them.
+The exponent contribution from service is `v/v_scale + min(t/t_scale,
+t_cap)` -- volunteering uncapped (per Garret's explicit "sky high" request),
+trailwork capped (per Garret's explicit "harder to verify and perhaps of
+more variable quality in practice" reasoning).
+
+**Defaults chosen, and why**, checked against the real `Volunteer_Points`/
+`Extra_Trailwork_Points` distributions across all 4 data years (2023-2026):
+
+- `v_scale = 4` (4 volunteer points = +1 in the exponent = another full 2x,
+  matching the task's own suggested example). Checked against the data:
+  median NONZERO volunteer total is only ~2.5-3.5 points across years (most
+  applicants have 0), so a typical volunteer gets a modest ~1.5-1.8x bump,
+  while the real tail is wide -- p99 is 14-25 points, max observed is 17-30
+  -- giving multipliers from ~11x at p99 up to ~181x at the observed max
+  (30 points / 2026's cap). That's genuinely "sky high" and uncapped, as
+  asked, without needing a special-cased huge default scale.
+- `t_scale = 8`, `t_cap = 0.5`. The cap value (0.5) is the task's own
+  suggested example -- exactly what one race finish is worth, so no amount
+  of trailwork can ever outweigh a single finish. The scale (8, saturating
+  at 4 raw trailwork points) was chosen deliberately HIGHER than v_scale's 4
+  -- i.e. each trailwork point earns only HALF the per-point exponent credit
+  volunteering gets, on top of the hard cap -- so trailwork is doubly
+  conservative (lower rate AND a ceiling), matching Garret's stated reason
+  for treating it differently. Checked against the data: nonzero trailwork
+  medians are ~1-1.25 points across years, so most real trailwork
+  contributors (p50-p75) get real, graduated credit below the cap; only the
+  heaviest contributors (roughly p85-p99+, well within the observed 0-10
+  point range) are saturated. A naive `t_scale = 4` (matching v_scale) would
+  have put the cap at just 2 raw points, saturating roughly HALF of all
+  nonzero trailworkers immediately -- rejected as too aggressive to call
+  "graduated," even though the end state (hard cap at 0.5) is intentional.
+- Slider ranges: `v_scale`/`t_scale` 1-20 step 1 (min 1 to avoid a
+  divide-by-zero), `t_cap` 0-2 step 0.25 (same step as the existing
+  `k_floor` slider, range wide enough to push trailwork's cap well above
+  one finish's worth if Garret wants to experiment with that).
+
+### Wiring: no parallel calculation path
+
+Followed the same pattern as the two prior rounds of work on this branch
+(formula-family generalization, then k-ramp/floor generalization): extended
+the ONE existing shared function at each layer, rather than adding a second
+code path.
+
+- `apply_service_toggles()` (app.R) gained `family`/`v_scale`/`t_scale`/
+  `t_cap` parameters. For every other family it still returns exactly
+  `volunteer + trailwork` (with the existing "drop trailwork" toggle),
+  byte-for-byte the same as before. Only for `garret_decoupled` does it
+  return the rescaled `v/v_scale + min(t/t_scale, t_cap)` instead -- this is
+  the ONLY place v/t get rescaled; everywhere downstream just sees "the `s`
+  argument whatever `formula_fn(n, k, s)` already expects," unchanged in
+  shape.
+- `build_ticket_formula()` (lottery_projection.R) gained one more `switch()`
+  arm: `garret_decoupled = function(n, k, s) exp_val ^ n * 2 ^ (k + s)`. Same
+  `(n, k, s) -> tickets` signature as every other family.
+- Both call sites of `apply_service_toggles()` -- `base_data()` (real
+  applicant pools) and `output$userTickets` (the Example Applicant Profile
+  preview) -- now pass `input$formula_family`/`v_scale`/`t_scale`/`t_cap`
+  through. `output$ticketFormula`'s live formula-text display got a new
+  `switch()` arm showing the actual rescaled v/t contributions, so what's
+  displayed always matches what's computed.
+- The multi-year projection engine needed NO changes at all beyond the
+  `build_ticket_formula()` arm above: `seed_groups_for_projection()` already
+  reads its `s` straight off `base_data()`'s `service` column, which is
+  already correctly family-rescaled by the time it gets there.
+
+### Sanity checks (per task requirement 4)
+
+Standalone checks of the formula math directly (not through Shiny):
+- Rookie (k=0, s=0) at n = 0/1/2/3/5 under b=3: tickets = 1/3/9/27/243 =
+  `b^n` exactly, as expected -- nonzero and sensible at every n.
+- 2-finish veteran (k=1, the ramp=2 default's cap) vs. 0-finish (k=0) at the
+  same n, s: ratio is exactly 2.0000 at n = 0, 2, and 4 -- confirms the 2x
+  veteran cap holds regardless of n, by construction (`2^k` factors out of
+  `2^n`... no, out of `2^(k+s)`, independent of the `b^n` term entirely).
+- Large v (`v_scale=4`): v=0/4/8/20/30 -> multiplier vs. v=0 of
+  1x/2x/4x/32x/181x -- confirms "sky high" is not accidentally capped; grows
+  without bound as v grows.
+- Large t (`t_scale=8, t_cap=0.5`): t=0/2/4/8/10/100/100000 -> multiplier
+  1.00x/1.19x/1.41x/1.41x/1.41x/1.41x/1.41x -- confirms saturation at the
+  cap (`2^0.5 = 1.414x`) by t=4 and staying there regardless of how large t
+  gets afterward.
+
+Then `shiny::testServer()` against the REAL app.R (not a reimplementation),
+with `formula_family = "garret_decoupled"`:
+- All 4 data years (2023-2026) at this family's defaults (`exp=3, k_ramp=2,
+  k_floor=0.5, v_scale=4, t_scale=8, t_cap=0.5`): `base_data()$tickets` has
+  no NAs, no non-positive values, on every year; `assigned_data()` has no
+  NA odds for any `SelectionStatus == "Lottery"` row; every existing output
+  (`ticketFormula`, `userTickets`, `kRampPlot`, both odds table pairs, all
+  4 histograms, both odds-dist scatter plots, `autoSnapshot`) rendered
+  without error on every year.
+- Extreme slider combination (2026 data, `exp=5, k_ramp=6, k_floor=0,
+  v_scale=1, t_scale=20, t_cap=2`, plus every discrete-rule toggle turned on
+  at once and Monte Carlo odds): no NAs, no crashes; max ticket count
+  reached ~1.3e8 (an extreme-but-finite number, as expected from stacking
+  every slider at its extreme simultaneously) and all outputs still
+  rendered.
+- Degenerate scale values (`v_scale=1, t_scale=1, t_cap=0`, which would be
+  `0/0 = NaN` if `trailwork` could be 0 AND `t_scale` could be 0 -- guarded
+  against by the slider's own `min = 1`): confirmed `is.finite()` holds for
+  every ticket value.
+- A real `shiny::runApp()` launch on a local port with this family selected
+  also returned HTTP 200.
+
+The only warnings seen anywhere in this testing were the pre-existing,
+already-documented-as-out-of-scope cosmetic warning from the 2026-10-12 log
+entry ("Monte Carlo layer draws even in Deterministic mode, all-NA, dropped
+by ggplot with a harmless warning") -- not something this change introduced
+or needed to fix.
+
+### Left for Garret to review before deploying
+
+- The choice of `t_scale = 8` (vs. matching `v_scale`'s 4) is a judgment
+  call, not something Caleb specified -- flagged above with the reasoning
+  and the data check that motivated it; easy to change via one slider
+  default if Garret disagrees.
+- As with the k-ramp/floor work, the `observeEvent` that nudges `exp`/
+  `k_ramp` to this family's defaults only fires going INTO this family, not
+  coming back out -- so switching to `garret_decoupled` and back to
+  `current` in the same session can leave `exp`/`k_ramp` at 3/2 instead of
+  today's production 2/3, unless you reset them yourself. Not a bug in the
+  new family's own math, just a minor shared-slider UX wrinkle worth
+  knowing about if demoing both back-to-back for Caleb.
+
+---
+
+## 2026-10-13 — Dashboard (app.R): generalized the finish bonus (k) into a ramp/floor knob
+
+**Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**
+Garret should review the diff and deploy himself.
+
+### What this is
+
+Caleb's "lotto 2.0" proposal raised the Hardrock 100 concern: at Hardrock,
+10+-time finishers get near-guaranteed entry and newcomers have almost no
+chance, which Garret considers ethically undesirable here. The current
+formula already guards against that via the `k` (weighted finishes) term,
+and Garret confirmed its piecewise shape -- k = 0/.5/1/1.5 for 0/1/2/3
+finishes, then DROPS BACK DOWN to 0.5 for 4+ finishes -- is deliberate, not
+a bug: it caps the maximum lifetime benefit a mega-veteran can ever get, so
+a 10-time finisher earns no more ticket benefit than a 1-time finisher.
+
+That piecewise rule collapses to one formula:
+
+```
+k(finishes) = 0.5 * min(finishes, RAMP),  if finishes <= RAMP
+k(finishes) = FLOOR,                       if finishes >  RAMP
+```
+
+with today's production values RAMP = 3, FLOOR = 0.5. Added two sidebar
+sliders (`k_ramp` 1-6, `k_floor` 0-1.5 step 0.25) so Garret/Caleb can
+experiment with this shape directly, a small always-visible plot
+(`output$kRampPlot`, finishes 0-10) comparing the chosen shape against
+today's production rule side by side, and wired `derive_k_from_finishes()`
+(now taking `ramp`/`floor_val` params, defaulting to today's values) into
+every place that already computed k from a finish count -- `base_data()`
+(the real applicant pools), the sidebar's "Example Applicant Profile"
+(`ticketFormula` / `userTickets`), and therefore the multi-year projection
+engine too, which already reads `k` off of `base_data()`'s output. No
+second formula path was added; everything downstream (tickets, odds
+tables, plots, projections) just sees a different `k` column when the
+sliders move. Defaults reproduce today's exact rule -- verified
+`k_ramp=3, k_floor=0.5` on 2026 data gives back `Weighted_Finishes` exactly
+(`max(abs(sort(k) - sort(Weighted_Finishes))) == 0` via `testServer()`).
+
+### The two-finish-count discrepancy (investigated as part of this)
+
+The task flagged a real puzzle: 2026's official `Weighted_Finishes` field
+has only 4 people (all men) at its max-bonus tier (1.5, i.e. 3 finishes),
+but `lottery_panel.csv`'s `panel_prior_wins` shows far more people with
+"3 lifetime wins" (10 men / 6 women) and "4+ lifetime wins" (3 men / 1
+woman). Both counts checked out exactly against the data. The question was
+which one is the right raw input for the new `k()`.
+
+**Verified `panel_prior_wins` is the wrong field** -- despite the name, it
+does not track race finishes. Cross-tabbing it against the panel's own
+`status` history shows it tracks (almost exactly, modulo a small
+pre-2020 offset) how many times someone was ever **selected** into the
+race (`status %in% c("drawn","preselect")`), not how many times they
+**finished** it:
+
+```
+panel_prior_wins - cumulative_times_selected_before_this_year
+  0: 4657 rows   1: 117 rows   2: 8 rows   (never negative)
+```
+
+whereas cross-tabbing it against actual finishes (`ran == TRUE & result ==
+"finished"`) is much messier and has far more slack. The giveaway: every
+2021 entrant preselected via a "Covid Rollover" `preselect_reason` (i.e.
+their 2020 race was cancelled and they were rolled over -- they never
+ran it) already shows `panel_prior_wins = 1`. ~30% of people who start the
+2020-2026 field don't finish (613 finishes out of 879 starts in the panel),
+so `panel_prior_wins` systematically overstates true finishes and would
+credit DNFs/no-shows as if they were veterans -- exactly backwards for a
+formula whose entire point is capping *finish*-based benefit. Using it
+would make the Hardrock-stacking problem worse, not better.
+
+**Used instead: a reconstructed raw finish count**, built from the panel's
+own `ran`/`result` fields (`ran == TRUE & result == "finished"`, counted
+per `runner_id` for years strictly before 2026) --
+`reconstruct_2026_raw_finishes()` in `app.R`. This disambiguates the one
+place `Weighted_Finishes` is genuinely lossy: its 0.5 bucket is worn by
+*both* 1-time finishers and 4+-time veterans alike (today's floor hides
+exactly the distinction a wider ramp needs). Checked this reconstruction
+against `Weighted_Finishes` directly: every unambiguous bucket
+(`Weighted_Finishes` 0, 1, 1.5 implying 0, 2, 3 raw finishes) has a
+panel-observed finish count <= the implied raw count, with the small gap
+fully explained by pre-2020 finishes the panel window (2020-2026) can't
+see -- a clean, structurally consistent result, unlike `panel_prior_wins`.
+Of the 100 2026 entrants in the ambiguous 0.5 bucket, the panel resolves 4
+of them (3 men / 1 woman -- the same `panel_prior_wins`-based count the
+task description used as a sanity check, reached here by a different and,
+per the analysis above, more defensible route) as true 4+/5-time
+finishers; the rest default to "1 finish" (the modal case). For
+2023-2025 data, which already carries a true raw count under
+`Previous_Finishes`, none of this reconstruction is needed -- it's used
+for the parametrized `k()`'s input unchanged.
+
+Because the reconstruction only matters to break the 0.5 bucket apart, and
+every person in that bucket still lands back on `FLOOR` under the default
+`RAMP = 3` regardless of whether they're reconstructed as exactly 4 or 5,
+the default-reproduction guarantee holds regardless of any remaining
+uncertainty in the reconstruction itself.
+
+**Open item for Caleb/the developer:** worth asking the lottery site's
+admin export to include a raw lifetime finish count directly (or rename
+`panel_prior_wins` / clarify what it tracks) -- reconstructing it from
+`ran`/`result` history works but is more fragile than having the real
+number.
+
+### Testing
+
+`shiny::testServer()`: confirmed `k_ramp=3, k_floor=0.5` (defaults)
+exactly reproduce `Weighted_Finishes` on 2026 data; confirmed moving the
+sliders changes `k`, `tickets`, and downstream odds on years where
+raw finishes exceed the new ramp (2026, 2024, 2023) and correctly has *no*
+effect on 2025 (verified separately: no 2025 applicant has more than 3 raw
+finishes, so widening the ramp past 3 has nothing to bite on that year --
+not a bug); rendered every existing output (`kRampPlot`, `ticketFormula`,
+`userTickets`, both odds table pairs, all four histograms, both odds-dist
+scatter plots, the snapshot/stats text) with both default and extreme
+(`k_ramp=6, k_floor=0`) slider settings -- all rendered without error, and
+the resulting `k` column at the extreme setting (0, 0.5, 1, 1.5, 2, 2.5 for
+raw finishes 0-5) matched the formula by hand. Also did a real
+`shiny::runApp()` launch on a local port and confirmed HTTP 200.
+
+---
+
+## 2026-10-13 — Dashboard (app.R): fixed "Ticket vs Odds" points piling up at 100%
+
+**Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**
+Garret should review the diff and deploy himself.
+
+### Bug report
+
+Garret noticed an unexpectedly large number of the "Distribution of Odds
+(Tickets vs Odds)" dot plots' Monte Carlo-simulated points sitting at or
+near 100%, when only applicants with enormous ticket counts relative to the
+pool should ever approach certainty.
+
+### Root cause: category error, not an odds-math bug
+
+`oddsDistW`/`oddsDistM` plot `assigned_data()` for the gender with **no
+filter on `SelectionStatus`**. But `assigned_data()` hard-sets
+`Odds_Exact <- 1` / `Odds_MC <- 1` for every `"Auto-Selected"` row and
+`<- 0` for every `"Removed"` row -- these are categorical overrides, not
+outputs of `calc_lottery_odds()`/`simulate_odds()` at all (those two
+functions are only ever called on `SelectionStatus == "Lottery"` rows).
+`"Auto-Selected"` covers two real things: (a) 2026 preselects (29 M / 11 F,
+*always* marked this way whenever 2026 data loads, independent of any
+slider -- see the 2026-10-12 entry below) and (b) anyone qualifying under
+the sidebar's "Guaranteed-entry rule" (`auto_at`) when one is active. With
+no filter, every one of those applicants got plotted as a point at exactly
+y = 100% in the *same* "Direct"/"Monte Carlo" series as genuinely-drawn
+applicants, at whatever (often perfectly ordinary) ticket count their
+profile happened to produce -- nothing to do with having an enormous
+ticket count.
+
+Quantified with a standalone reproduction (`base_data()`/`processed_data()`
+logic re-run outside Shiny against `2026HLdata.csv`): with the 3rd-try
+guarantee (`auto_at = "2"`) active on 2026 men, **17.1% of all points that
+would be plotted (160 of 935) were hard-set to 100% this way** -- and their
+ticket-count range (median 8, up to 45) overlapped the *same* range as
+genuinely-drawn lottery applicants (median 2, up to ~11), confirming these
+weren't legitimately-high-ticket people, just guaranteed-in people with
+ordinary ticket counts. Even with no `auto_at` rule at all, 2026 preselects
+alone contaminate 29 men's / 11 women's points every time 2026 data is
+viewed.
+
+Checked the other hypotheses and ruled them out:
+- **Not a Monte Carlo denominator bug.** `simulate_odds()` correctly
+  computes P(drawn in one simulated draw) -- `counts[picks] <- counts[picks]
+  + 1` per rep, divided by `n_sim` at the end -- not P(ever drawn across
+  reps). Confirmed `calc_lottery_odds()` and `simulate_odds()` agree closely
+  on the real `SelectionStatus == "Lottery"` subset.
+- **Not a small-pool mean-field artifact.** Restricting to genuine
+  `"Lottery"`-status 2026 men (906 of them, 95 picks, the default formula),
+  the *highest* odds anyone legitimately reaches is ~72%
+  (`sum(calc_lottery_odds(...)) == 95` as the sanity check, matching
+  `simulate_odds()` to within simulation noise) -- nowhere near 100%, and
+  nobody is close. So "legitimately high odds from legitimately high
+  tickets" was not happening anywhere in the data checked; every point at
+  or near 100% was a categorical override leaking into the chart.
+
+### Fix
+
+Filter both plots to `SelectionStatus == "Lottery"` before plotting --
+this chart's whole purpose is comparing the two *draw-probability*
+calculation methods against each other, which is meaningless for
+applicants who bypass the draw entirely. Added a subtitle/caption to each
+plot reporting how many applicants were excluded, so the exclusion is
+visible rather than silent (Caleb/Garret can still see e.g. "160 of 935 men
+excluded" and know the guarantee rule is doing a lot of work, just not on
+this particular chart).
+
+### Related bug found via regression testing (same code path)
+
+While testServer-regression-testing the fix across all 4 years x 4
+`auto_at` settings x 2 odds methods, found that when the guaranteed-entry
+tier already equals or exceeds `Nm`/`Nw` on its own (`n_picks_m`/`n_picks_w`
+computed as 0), the remaining genuine `"Lottery"`-status applicants were
+left at `Odds_Exact`/`Odds_MC`'s `NA_real_` default instead of their true
+value, which is exactly 0 (nobody is left to draw). ggplot silently drops
+NA points, so this wasn't the reported "piling up at 100%" symptom, but
+it's the same code region (`assigned_data()`'s picks<=0 branch, previously
+missing) and is wrong in the same spirit -- fixed by setting
+`Odds_Exact[idx] <- 0; Odds_MC[idx] <- 0` when `length(idx) > 0` but
+`picks <= 0`. Reproduces with 2026 men + `auto_at = "2"` (3rd try): 775
+genuine lottery men, all correctly 0%, zero `NA`s, instead of 775 silently
+dropped `NA` points.
+
+### Testing
+
+Standalone `Rscript` reproduction against `2026HLdata.csv` (outside Shiny)
+to quantify the contamination and separately confirm the mean-field/Monte
+Carlo odds themselves are not the problem (see Root cause above). Then
+`shiny::testServer()` regression across all 4 data years x all 4 `auto_at`
+settings (`none`/`2`/`3`/`4`) x both `deterministic` and `mc1000` odds
+methods, asserting for each: every plotted point's relevant odds column is
+non-`NA` and <= 1, and every plotted row's `SelectionStatus` really is
+`"Lottery"` (nothing categorical leaked through the new filter). Also
+rendered `output$oddsDistM`/`output$oddsDistW` directly in each scenario to
+confirm no rendering errors. All scenarios passed after both fixes above.
+
+### Does this change how the dashboard's other plots should be read?
+
+No -- this was specific to `oddsDistW`/`oddsDistM`. The "Expected # Picked"
+bar charts (`histW`/`histM`/`finHistW`/`finHistM`) correctly include
+Auto-Selected/Removed applicants' hard-set odds in their `sum()`, because
+those charts are about total expected picks across *everyone*, guaranteed
+or not -- excluding the guaranteed tier there would under-count real
+picks. Only the tickets-vs-odds scatter, whose specific job is comparing
+the two probabilistic-draw calculations against each other, needed the
+exclusion. The pre-existing cosmetic "Monte Carlo layer draws even in
+Deterministic mode, all-NA, dropped with a harmless warning" issue noted in
+the 2026-10-12 entry is unrelated and still not fixed (out of scope here
+too).
+
+---
+
+## 2026-10-12 — Dashboard (app.R): fixed 2026 data crash, added interactive knobs
+
+**Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**
+Garret should review the diff and deploy himself.
+
+### Update: two issues Garret hit running the app in RStudio
+
+- **"error: incorrect number of probabilities" in the Monte Carlo odds
+  method.** This is a classic R footgun, pre-existing in `simulate_draw()`
+  (not introduced by this session's other changes): `sample(x, 1, prob =
+  probs)` behaves differently when `x` has length 1 -- R treats a
+  length-1 *numeric* `x` as "draw from `1:x`", not "this one candidate
+  already identified," so a length-1 `prob` then doesn't match the
+  length R expects internally and it throws. This fires whenever a draw
+  runs all the way down to exactly one remaining candidate -- i.e.
+  whenever "Number of Men/Women to Pick" is close to or exceeds the
+  "Lottery"-eligible pool for that year. Fixed by special-casing
+  `length(remaining) == 1` to take that candidate directly instead of
+  calling `sample()` at all. Verified with direct unit tests of
+  `simulate_draw()`/`simulate_odds()` at the exhaustion boundary (pools of
+  length 1, 2, 5, 6, with exact/over-asked pick counts, and a zero-ticket
+  case), then through the full app pipeline forcing exhaustion on the
+  smallest real pool (2023 women, N=151) across all 3 formula families x
+  all 4 automatic-entry thresholds, then a happy-path regression check
+  (realistic Nm/Nw defaults, no forced exhaustion) across all 4 years --
+  all passed. (Noted but out of scope: `simulate_draw()`'s loop-based
+  approach is O(picks x pool) per replication and gets slow near full-pool
+  exhaustion; CLAUDE.md documents a faster exact method,
+  `order(rexp(N)/tickets)[1:n_picks]`, already used in `cohort_sim.R`,
+  that doesn't have this bug at all -- worth swapping in if Monte Carlo
+  speed becomes a real problem, not done here to keep this fix minimal.)
+- **Side-by-side Women/Men columns had no header.** The two
+  `fluidRow(column(6, ...), column(6, ...))` blocks under "Lottery Odds
+  Summary" and "Detailed Odds" (the `avgOddsW`/`avgOddsM` and
+  `oddsW`/`oddsM` DataTables) had nothing distinguishing which side was
+  which pool -- unlike the plots further down, which already had ggplot
+  titles. Added "Women (F)" / "Men (M)" headers above both table pairs,
+  and added matching "Women"/"Men" plot titles to `histW`/`histM` and
+  `finHistW`/`finHistM`, which had the same ambiguity (only distinguished
+  by bar color).
+
+### Bugs found and fixed in `app.R`
+
+- **Selecting "2026" in the Data Year dropdown crashed the app outright.**
+  `base_data()` unconditionally expected a `Previous_Finishes` column, but
+  the 2026 export doesn't carry one -- it supplies the already-weighted `k`
+  value directly under `Weighted_Finishes` (see this file's 2026-09-14
+  entry). Now branches on which column is actually present.
+- **40 "denied" 2026 applicants have no pool assignment at all**
+  (`Lottery Pool` is `NA` for all of them -- they were rejected before ever
+  being assigned a pool). Left in, any logic that counts people by gender
+  (e.g. the new automatic-entry rule below) silently produces `NA` instead
+  of a slot count. Now excluded in `base_data()`, matching
+  `cohort_sim.R`'s `load_pool_2026()`, which already excludes them.
+- **2026 preselects (29 M / 11 F) were competing in the ordinary lottery
+  pool** instead of being treated as already-guaranteed, unrelated to the
+  ticket formula -- inconsistent with this log's own "125 per pool incl.
+  pre-selects -> 96/114 lottery picks" framing. Now marked
+  `SelectionStatus == "Auto-Selected"` up front, same as a guaranteed-entry
+  rule, so `Nm`/`Nw` sliders correctly mean lottery-only slots.
+- Removed a duplicated `checkboxInput("no_firsttime_zero", ...)` (same
+  input registered twice, copy-paste artifact).
+- `textOutput("avgAppsStats")` / `textOutput("avgFinishesStats")` existed
+  in the UI with no server-side `renderText` behind them (rendered blank).
+  Implemented both.
+- Removed `calc_deterministic_odds()`, a dead function (never called --
+  `assigned_data()` calls `calc_lottery_odds()` directly) that also did a
+  pointless `digest::digest()` into an attribute nothing ever read; trimmed
+  the same dead pattern out of `memo_simulate_odds()`.
+- Confirmed `calc_lottery_odds()`'s recursion already matches this file's
+  documented September 2026 fix (survival is not double-counted) --
+  no change needed there.
+- `checkboxGroupInput("odds_toggles", ...)` ("Drop trailwork", "Drop log
+  and +1") existed in the UI but `input$odds_toggles` was never read
+  anywhere in the server -- wired both up (see `build_app_formula()` /
+  `apply_service_toggles()` in `app.R`).
+
+### New interactive knobs
+
+Per Garret's request, audited the existing UI first rather than adding
+parallel controls:
+
+1. **Formula selector -- extended existing controls.** The `exp`/`mult`
+   sliders already let you vary the current formula's base and service
+   multiplier; they could not express a formula with no service term at
+   all (e.g. `3^(n+k)`) or Caleb's proposal. Added one
+   `selectInput("formula_family", ...)` (current / pure power / Caleb)
+   that reuses the existing `exp` slider as the base for all three
+   families, rather than adding a second base control. Shared with the new
+   projection engine via `lottery_projection.R`'s `build_ticket_formula()`.
+2. **Automatic-entry guarantee -- generalized an existing control.**
+   `radioButtons("threeplus_rule", ...)` already implemented a guarantee,
+   hardcoded at n>=3 ("3+ year applicant"). Replaced with
+   `selectInput("auto_at", ...)` (3rd/4th/5th try, i.e. n>=2/3/4),
+   preserving the old n>=3 behavior as one of the choices, plus a small
+   always-on "Guaranteed-Entry Snapshot" text block showing how many
+   applicants already qualify vs. slots available for whichever threshold
+   is selected -- no projection/button needed for that part, it's cheap.
+3. **Growth-rate scenario selector -- new** (10% / 25% / 30% per year,
+   matching `cohort_sim.R`'s three scenarios).
+4. **Year-3-convergence view -- new.** A chart comparing current vs.
+   base-3 vs. base-4's cumulative "persistent rookie" odds by year, to
+   make visible in the dashboard itself that the three formulas are nearly
+   indistinguishable through year 3 and only diverge from year 4 on.
+
+(3) and (4), plus a companion "when does the guarantee become
+oversubscribed" chart for (2), are powered by a new file,
+`lottery_projection.R`: a fast, deterministic (expected-value, not Monte
+Carlo) multi-year projection engine, since the real `cohort_sim.R`
+simulation takes ~3 minutes and can't sit behind a dashboard slider. It
+tracks population by `(n, k, s)` group instead of by individual, which
+is mathematically identical to the individual-level recursion when
+everyone in a group is interchangeable, and runs in milliseconds.
+**Deliberately simplified** relative to `cohort_sim.R` (see that file's
+header comment for the full list): no dormant-reservoir/comeback
+modeling, new rookies modeled as one homogeneous k=0/s=0 group, no
+service-point accumulation, fixed (non-adjustable) retention rates taken
+from this log's panel-derived figures. This makes it systematically
+*optimistic* relative to this log's dormancy-adjusted numbers -- use
+`cohort_sim.R` for anything that needs to match this write-up exactly.
+Validated against this log's first-pass cohort-sim table (before the
+dormancy revision) and landed within a few points on every formula/year
+(e.g. base 4 at year 5: 86% here vs. 89% there), with the year-3
+convergence point holding even tighter (19-21% here vs. 22-24% there).
+Both the new engine's outputs and all 2026 data use the same real
+person-level data already used to run the Monte Carlo odds elsewhere in
+the app; nothing synthetic was introduced.
+
+Projections are gated behind an explicit "Run multi-year projection"
+button (`eventReactive`, not `reactive`) so an 8-year loop doesn't re-run
+on every slider tick, per this file's RAM/speed guidance.
+
+### Testing
+
+All packages (`shiny`, `dplyr`, `DT`, `bslib`, `ggplot2`, etc.) loaded
+fine in this environment (R 4.3.3) -- the "library mismatch" gotcha noted
+elsewhere in this file did not apply here. Tested with `shiny::testServer()`
+(simulated inputs, no browser) across all 4 data years, all 3 formula
+families, all 4 automatic-entry settings, and the projection button; also
+did a real `shiny::runApp()` launch on a local port and confirmed it serves
+HTTP 200. The `testServer` run is what surfaced the "denied" applicants'
+`NA`-gender bug above -- it wasn't visible just from reading the code.
+
+### Left for Garret to review before deploying
+
+- The projection engine's simplifications (no dormancy, homogeneous
+  rookies) are a deliberate speed/accuracy tradeoff for an interactive
+  tool; if the exact dormancy-adjusted numbers matter for a given
+  conversation with Caleb, point him at this log / `cohort_sim.R` instead.
+- Didn't touch the pre-existing cosmetic warning where the "Ticket vs
+  Odds" scatter plots always draw a "Monte Carlo" layer even when
+  Odds Calculation Method is "Deterministic" (all-NA, silently dropped by
+  ggplot with a harmless warning) -- out of scope for this pass.
+- Growth rate and automatic-entry threshold are dashboard knobs; the
+  underlying retention rates are not (kept as fixed, documented constants)
+  to keep the UI focused on what this conversation specifically asked for.
+---
+
 ## 2026-10-13 (2) — Decoupled formula design; fact-checking Garret's draft reply to Caleb
 
 Continuation of same-day work: designed the `b^n * 2^(min(1,k)) * c^(v+t)`-style
