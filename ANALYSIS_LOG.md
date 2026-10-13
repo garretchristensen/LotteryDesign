@@ -4,6 +4,100 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 — Caleb's full email, auto-entry refinements, dashboard debugging
+
+### Bottom line
+
+- **Got Caleb's actual email** (not just the 2026-09-14 paraphrase). Saved
+  verbatim as `caleb_email_2026-09.md`, gitignored (personal correspondence,
+  not for the public repo). Paraphrase holds up; extra, non-obvious detail:
+  Garret had already suggested base 3 to Caleb before this email; Caleb's
+  rationale for the two-component split (`4^n` + booster) is to keep "prior
+  apps since reset" simple and front-and-center; his NB proportional-floor
+  idea has a concrete worked example (2% of applicants -> >=2% of draw);
+  refund changes need Kelsey's (half-owner) sign-off; he wants outside
+  ethical input on the NB question, is only putting numbers on the table.
+- **5th-try guarantee (n>=4), run for the first time against the
+  panel-based model**: oversubscribes in **2032** (96 literal slots) /
+  **2033** (118 effective slots) at 25% growth -- about 3 years more
+  runway than the already-logged 4th-try guarantee (n>=3), which breaks
+  2029/2030. See "Automatic-entry rule" section below for both thresholds
+  side by side.
+- **Year-3 convergence, re-verified at higher precision (200 reps):**
+  current/base3/base4 land at 23.27% / 23.28% / 23.15% for a 2027 rookie
+  -- close, not exactly equal; the "23% across the board" framing from the
+  first-pass table is a rounding coincidence, not an identity. Still a
+  real, structural finding (driven by fixed slots/year + most ticket mass
+  going to the existing high-n backlog regardless of base), just don't
+  oversell its precision to Caleb.
+- **The backlog benefits immediately, no simulation needed.** Applying
+  `3^(n+k)`/`4^(n+k)` to the actual 2026 pool (one year, no growth
+  modeling) lifts today's 131 men at n>=2 right away: n=2 odds 19.4% ->
+  24.5% -> 26.3%; n=3: 32% -> 48% -> 57%; n=4: 52% -> 77% -> 87%. This is
+  a direct transfer from this year's rookie slots (36 -> 21 -> 13), not a
+  multi-year effect -- useful to separate from the "does it help *future*
+  rookies" question (it doesn't, see year-3 convergence above).
+- **Spawned a background agent ("dashboardguy") to debug and extend
+  `app.R`.** Its work is on a separate branch, `worktree-agent-a58abef50e243d5a8`,
+  committed but not merged to main or deployed -- see that branch's own
+  `ANALYSIS_LOG.md` entry (2026-10-12) for the full write-up: fixed a 2026
+  data crash, a Monte Carlo `sample()` bug, unlabeled Women/Men columns,
+  and added formula/auto-entry/growth-rate/year-3-convergence knobs to the
+  dashboard. Left for Garret to review and merge/deploy himself.
+
+### Automatic-entry rule, both thresholds, panel-based model, 25% growth
+
+Share of men's slots claimed by the automatic tier, by year:
+
+| Rule | 2027 | 2028 | 2029 | 2030 | 2031 | 2032 | 2033 |
+|---|---|---|---|---|---|---|---|
+| 4th-try-and-up (n>=3), 118 slots | 50% | 54% | 81% | **128%** | | | |
+| 4th-try-and-up (n>=3), 96 slots | 61% | 69% | **106%** | | | | |
+| 5th-try-and-up (n>=4), 118 slots | 11% | 16% | 23% | 37% | 58% | 93% | **135%** |
+| 5th-try-and-up (n>=4), 96 slots | 14% | 20% | 31% | 50% | 80% | **121%** | |
+
+Real-data cross-check on the 2026 pool itself: of men already at n=3 (4th
+try), 12/28 (43%) weren't even waitlisted this year (6 drawn, 9
+waitlisted, 1 preselect); of men at n=4 (5th try), 0/5 were lost outright
+(2 drawn, 3 waitlisted) -- today's 4th-try cohort is still getting
+meaningfully worse treatment than the odds table alone suggests, which is
+part of why the 4th-try guarantee has so little runway before 100%.
+
+### Non-binary applicants (Caleb's point 3) -- mechanism only, not the ethics
+
+Caleb's two options: (1) separate NB pool, fixed floor of 4 guaranteed
+spots; (2) NB stays in chosen binary pool, with a proportional floor
+(NB's share of that pool's draw >= NB's share of that pool's applicants).
+No NB applicant-count data exists anywhere in this repo or the public API
+(gender fields are private) -- this is the real blocker, not the choice
+of mechanism. Mechanically: option 2 is not the status quo ("just compete
+in your chosen pool") -- it's an active, enforced minimum on top of it,
+using the same reserved-slot mechanism the software already uses for
+`Pro Runner`/`Legacy Runner`/etc. Without an enforced floor, NB
+applicants' share of the draw is not guaranteed to match their share of
+applicants, and probably runs below it for the same structural reason
+rookies are underrepresented in the draw generally (no accumulated
+tickets). Fixed quotas (option 1) risk a self-identification incentive if
+sized generously relative to actual (unknown) NB demand, and go stale the
+same way the current base has. Recommend getting the real NB count from
+Caleb before sizing either option; deferred the ethical weighting
+question to the outside group Caleb already said he wants to involve.
+
+### Draft reply to Caleb, point 1 (base exponent) -- reviewed
+
+Caught before it went out: draft cited the superseded first-pass cumulative
+table (base4/yr5 at 89%, should be 80%; base3/yr5 at 75%, should be 68%)
+and an unfilled "X men already applying 3+ times" -- confirmed X = 131
+directly from the 2026 data. Suggested leading with the headcount argument
+(131 men at n>=2 vs. 96 slots/year -- true regardless of any model) rather
+than the "higher base = worse for rookies, that's what we want" tradeoff
+framing, since the headcount point is unimpeachable and the tradeoff
+framing risks reading as something tunable. Added the 2030-cohort numbers
+(yr3: 9%/7%/6% current/base3/base4; yr5: 22%/29%/32%) so the reply doesn't
+imply picking a base solves lottery creep once and for good.
+
+---
+
 ## 2026-09-14 — 2027 lottery redesign: data, odds bug, cohort simulation
 
 ### Bottom line (as of end of day)
