@@ -4,6 +4,208 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 (6) — Dashboard (app.R): fixed formula-display leak, split sidebar into tabs, added adjustable Max Boost slider
+
+**Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
+
+Garret ran this worktree's app (after round (5) below) and reported three
+more issues, all now fixed in `app.R`:
+
+### 1. Formula display leaking explanatory text (and a stray trailing character)
+
+Garret saw the `garret_decoupled` formula box render something like
+`Tickets = 3^0 * 2^(0 + 0 + 0) [b=3 controls only n-steepness; the 2^(...)
+is a separate, fixed base-2 veteran/service multiplier, capped at 2x via
+k] 2` -- explanatory/reasoning text and a stray character leaking into
+what's supposed to be a clean math expression.
+
+**Root cause:** `output$ticketFormula`'s `switch()` arm for
+`garret_decoupled` built its display string with `paste0(...)`, and that
+same `paste0()` call had a bracketed explanatory aside
+(`"  [b=", exp_val, " controls only n-steepness; ...capped at 2x via
+k]"`) tacked directly onto the end of the formula text -- i.e. commentary
+that belongs in the UI's help text got concatenated into the live formula
+string itself, a leftover from how that arm was originally drafted. (We
+could not reproduce a literal trailing "2" character after the bracket
+from the exact committed code via `shiny::testServer()` -- the committed
+string ends in `...via k]` with nothing after it -- but whatever Garret
+saw trailing there is removed along with the rest of the bracket, since
+the fix deletes everything after the formula's closing parenthesis.)
+
+**Fix:** the `garret_decoupled` arm's `paste0()` now stops at the closing
+`)` of `2^(...)` -- `paste0(exp_val, "^", apps, " * 2^(", k_val, " + ",
+v_contrib, " + ", t_contrib, ")")` -- nothing else appended. The
+explanation of what b/k/v/t mean already lived in two places that are
+NOT the formula display: the always-visible (for this family)
+`conditionalPanel` helpText right above the v_scale/t_scale/t_cap sliders,
+and the collapsible "Finish-Bonus Ramp" help text (added in round (4)
+below). Both already existed; no new help text block was created for
+this fix, only the formula string was cleaned up.
+
+**Verification:** `shiny::testServer()` against the real server function,
+`garret_decoupled` at several slider combinations (finishes=2/max_boost=2,
+finishes=2/max_boost=4) -- formula text contains no `[` character and no
+leaked "capped at 2x via k" substring. Also spot-checked `current` (apps=4,
+finishes=2, volunteer=7, trailwork=3), `pure_power` (exp=4), and `caleb`
+(exp=3, apps=3) -- all three render clean (no stray brackets); `pure_power`
+intentionally keeps its own short, accurate `[service points have no
+effect in this family]` note, which is a legitimate behavioral caveat, not
+a reasoning-log leak, and Garret didn't flag it. Also rendered the real
+`ui`/launched the real app and curled the served page -- confirmed the
+string `"capped at 2x via k"` no longer appears anywhere in the rendered
+HTML.
+
+### 2. Starker visual separation: formula designer vs. observed stats, via tabs
+
+Garret's "Observed Applicant Stats" block (the four `textOutput`s showing
+real-data averages/percentages for the selected year) and the "ticket
+formula designer" controls actually both live in the **sidebar** (not the
+main panel -- `output$statsTitle`/`avgAppsStats`/etc. are rendered inside
+`sidebarPanel()`, between the "Example Applicant Profile" section and
+"Multi-Year Projection"), stacked with only an `hr()` between them. Garret
+wants them on genuinely separate tabs, since one is "what ticket formula
+should we use" and the other is "what does the real historical applicant
+data look like."
+
+**Fix:** wrapped the sidebar's contents in `shiny::tabsetPanel(type =
+"tabs", ...)` with two tabs:
+- **"Ticket Formula Designer"**: everything that drives or explores the
+  formula -- Lottery Parameters (formula family selector, the live
+  `ticketFormula` display, Exponent/Base, the `current`-only Service-Credit
+  Multiplier, the `garret_decoupled`-only v/t/Max-Boost controls), Nm/Nw,
+  the Finish-Bonus Ramp (k) section and its plot, Discrete Rules, Odds
+  Calculation Method, the Example Applicant Profile sliders and
+  `userTickets` preview, and the Multi-Year Projection controls (kept here,
+  not in the stats tab, since it's a formula-driven exploration tool, not
+  raw data).
+- **"Observed Applicant Stats"**: just the four real-data `textOutput`s.
+
+**Why `tabsetPanel` and not `bslib::navset_tab`/`navbarPage`:** this app
+`library(bslib)`s only for `bs_theme()` (theming) -- it has never used any
+of bslib's own navigation components, and introducing one here would be a
+second "how do tabs work in this app" idiom for no benefit. Plain
+`shiny::tabsetPanel()` needs no change to the outer `fluidPage()` /
+`sidebarLayout()` / `sidebarPanel()` / `mainPanel()` structure (unlike
+`navbarPage()`, which would require restructuring the whole page) and
+renders correctly under the existing `bs_theme(bootswatch = "minty")`.
+Shiny's `tabsetPanel()` hides inactive tabs with CSS only -- it does not
+destroy/recreate the DOM elements inside them -- so every input keeps its
+current value and every output keeps rendering regardless of which tab is
+selected; this is exactly the "don't lose reactive state" requirement.
+
+**Verification:**
+- Rendered the real `ui` object: confirms a single `class="tabbable"`
+  tabset, two `tab-pane` divs (one `tab-pane active`), `"Ticket Formula
+  Designer"` and `"Observed Applicant Stats"` tab labels both present, and
+  the `max_boost` slider's `id="max_boost"` inside the formula-designer
+  tab.
+- Launched the real app with `shiny::runApp()` on a local port and curled
+  the served page: same checks pass against the actual served HTML, not
+  just the pre-render.
+- `shiny::testServer()` smoke test: switched `formula_family` through all
+  4 values (`current`/`pure_power`/`caleb`/`garret_decoupled`) with the
+  app now running the tabbed UI -- `output$ticketFormula`,
+  `output$userTickets`, `base_data()`, and `assigned_data()` all still
+  render/compute correctly for every family (no errors, no unexpected
+  NAs), confirming the tab restructuring didn't silently break any
+  existing reactive wiring.
+- Killed the temporary local app process after curling it; nothing left
+  running.
+
+### 3. "Max Boost" slider: generalizing the hardcoded 2x veteran cap
+
+The `a4e6692` commit's k ramp/floor mechanism, as used by
+`garret_decoupled` (ramp defaulted to 2 for this family), caps k at a
+fixed value of 1 once you reach `ramp` finishes -- `2^1 = 2x`, matching
+Garret's explicit design goal ("2x is the ideal max benefit for being a
+vet," discussed in round (3)'s entry below). Garret now wants that cap
+itself adjustable, not hardcoded.
+
+**Math:** `derive_k_from_finishes(previous_finishes, ramp, floor_val,
+k_cap = NULL)` gained a `k_cap` parameter. Previously the function always
+used a fixed per-finish step of 0.5 (`k(finishes) = 0.5 * min(finishes,
+ramp)` up to the ramp, then `floor_val`). Now the per-finish step is
+derived from the cap: `step <- k_cap / ramp`, so `k` ramps linearly from 0
+up to exactly `k_cap` over `ramp` finishes, then drops to `floor_val`
+exactly as before. When `k_cap` is left `NULL` (every family except
+`garret_decoupled`), the function computes `k_cap <- 0.5 * ramp`
+internally first -- which reproduces `step = 0.5` exactly, i.e. today's
+rule byte-for-byte, for every caller that doesn't pass `k_cap` explicitly.
+
+A new `garret_k_cap(family, max_boost)` helper (top of `app.R`, right
+below `derive_k_from_finishes()`) is the one place that converts the
+slider's intuitive multiplier unit into the exponent unit the ramp
+function needs: `k_cap <- log2(max_boost)`, returning `NULL` for every
+family except `garret_decoupled` (so those families are completely
+unaffected, same as the `k_cap = NULL` default above). Every call site
+that computes k for this family now passes `k_cap =
+garret_k_cap(input$formula_family, input$max_boost)`:
+`output$ticketFormula`, `output$kRampPlot`'s "Your settings" line,
+`base_data()` (both the 2026 `Weighted_Finishes` branch and the
+2023-2025 raw-`Previous_Finishes` branch), and `output$userTickets`. The
+fixed "Current production rule (ramp 3, floor 0.5)" reference line in
+`kRampPlot` is untouched (always `k_cap = NULL`, i.e. today's rule,
+regardless of any slider).
+
+**UI:** added `sliderInput("max_boost", "Max finish-bonus boost
+(multiplier):", min = 1.1, max = 5, value = 2.0, step = 0.1)` inside the
+existing `garret_decoupled`-only `conditionalPanel`, alongside
+`v_scale`/`t_scale`/`t_cap` (same conditional pattern, same panel -- not a
+new panel). Labeled in the multiplier unit ("2x", "4x") per the task's
+explicit instruction, since that's the intuitive unit Garret thinks in,
+not the underlying `k_cap` exponent. The floor slider (`k_floor`) is
+completely unaffected -- it's a separate parameter, untouched by this
+change, and still controls what k drops to once past the ramp.
+
+Per the task's instruction not to create a second help block: the Max
+Boost explanation was added to the **existing** collapsible "Finish-Bonus
+Ramp" help text (the `kRampInfoPanel` div added in round (4) below) --
+new sentences were appended to that one `helpText()` call, explaining
+`k_cap = log2(max_boost)`, that the default 2.0x reproduces the old
+hardcoded behavior, and that the floor is unaffected. The non-collapsible
+`conditionalPanel` helpText just above the new slider (which already
+described the 2x cap) was updated in place so it no longer claims the cap
+is "exactly 2x" (now inaccurate) -- it instead points at the Max Boost
+slider, without duplicating the longer explanation.
+
+**Verification (exact-match checks, same style as `a4e6692`'s
+ramp/floor verification):**
+- Default `max_boost = 2.0`: `garret_k_cap()` returns `log2(2) = 1`
+  exactly; `derive_k_from_finishes(2, ramp=2, floor_val=0.5, k_cap=1)` at
+  `finishes=2` (the ramp cap, default ramp for this family) gives
+  `k=1` exactly, same as the old hardcoded behavior. Via
+  `shiny::testServer()`, a 2-finish veteran's `userTickets` value vs. a
+  0-finish rookie's, both at `max_boost=2.0`, gave a ratio of exactly
+  `2.0000000000` (not rounded-away-from-2) -- confirms the default
+  reproduces today's behavior exactly, not approximately.
+- `max_boost = 4.0`: `k_cap = log2(4) = 2` exactly; a 2-finish veteran's
+  ticket count vs. the same rookie gave a ratio of exactly
+  `4.0000000000` -- confirms the slider actually changes the realized
+  multiplier, and by the predicted amount (`2^2 = 4`, not `2^(something
+  else)`).
+- `max_boost = 3.0`, `finishes = 10` (past the ramp, into the floor):
+  `derive_k_from_finishes(10, ramp=2, floor_val=0.5, k_cap=log2(3))`
+  returns exactly `0.5` -- confirms the floor is untouched by `max_boost`
+  regardless of what the cap is, and the floor/rookie ticket ratio is
+  exactly `2^0.5 = 1.41421356...` (matched to the ticket-formula's own
+  display rounding, 1.41, in the `testServer` run; matched exactly via a
+  direct call to `derive_k_from_finishes()`/`garret_k_cap()` bypassing
+  that display rounding).
+- Edge values `max_boost = 1.1` and `max_boost = 5.0` on real 2026 data:
+  `base_data()$tickets` has no NA/Inf values at either extreme, and
+  `assigned_data()` has no NA odds among `SelectionStatus == "Lottery"`
+  rows -- confirms the generalization doesn't introduce degenerate
+  tickets at the slider's range endpoints.
+
+### Files touched
+
+Only `app.R`. No changes to `lottery_projection.R` (it only ever consumes
+an already-computed `k` value, so it needed no changes for the Max Boost
+generalization) or any data file. Not merged to main, not pushed, not
+deployed to shinyapps.io.
+
+---
+
 ## 2026-10-13 (5) — Dashboard (app.R): year selector default corrected to 2026
 
 **Status: local changes only, in a git worktree, NOT committed to main/pushed/deployed.**
