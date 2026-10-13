@@ -531,6 +531,20 @@ server <- function(input, output, session) {
             no_firsttime_zero = input$no_firsttime_zero
           )
         }
+      } else if (length(idx) > 0) {
+        # picks <= 0: the guaranteed-entry tier (Auto-Selected) already
+        # equals or exceeds this year's Nm/Nw slots on its own, so nobody
+        # left in "Lottery" status has ANY chance of being drawn -- their
+        # true odds are exactly 0, not unknown. Found while chasing the
+        # 2026-10-13 "points piling up at 100%" bug report: with this
+        # branch missing, these rows were left at the NA_real_ default
+        # instead, which ggplot silently drops from oddsDistW/M (not the
+        # reported symptom, but discovered via regression testing while
+        # fixing it) and which would also silently distort any mean()
+        # computed over Display_Odds elsewhere (avgOddsW/M already pass
+        # na.rm = TRUE, so those just under-count rather than crash).
+        df$Odds_Exact[idx] <- 0
+        df$Odds_MC[idx] <- 0
       }
 
       # Handle auto-selected and removed cases
@@ -729,25 +743,83 @@ server <- function(input, output, session) {
       theme_minimal()
   })
 
+  # oddsDistW / oddsDistM: this plot's whole purpose is to sanity-check
+  # calc_lottery_odds() (the mean-field "exact" formula) against
+  # simulate_odds() (Monte Carlo) -- two different ways of computing the SAME
+  # probabilistic quantity, "chance of being drawn given your ticket count."
+  # Both methods only ever produce a number for applicants who actually
+  # compete in the draw, i.e. SelectionStatus == "Lottery" -- see
+  # assigned_data() above, where Odds_Exact/Odds_MC are computed by
+  # calc_lottery_odds()/simulate_odds() ONLY over idx <- which(... &
+  # SelectionStatus == "Lottery").
+  #
+  # BUG (found 2026-10-13, see ANALYSIS_LOG.md): this used to plot the WHOLE
+  # assigned_data() for the gender, with no SelectionStatus filter at all.
+  # assigned_data() also hard-sets Odds_Exact <- 1 / Odds_MC <- 1 for every
+  # "Auto-Selected" row (2026 preselects, unconditionally whenever 2026 data
+  # is loaded -- not gated on any slider; PLUS anyone qualifying under the
+  # "Guaranteed-entry rule" (auto_at) selector when one is active) and
+  # Odds_Exact <- 0 / Odds_MC <- 0 for every "Removed" row (the "disallow
+  # first-time zero-finish applicants" checkbox). None of those 1s/0s come
+  # from the draw at all -- they're categorical overrides that bypass
+  # calc_lottery_odds()/simulate_odds() entirely -- but with no filter they
+  # got plotted in the exact same "Direct"/"Monte Carlo" series as the real
+  # calculated points, at whatever (often perfectly ordinary) ticket count
+  # that applicant's profile happened to produce. That's what made it look
+  # like "an unexpectedly large number of Monte Carlo points piling up at
+  # 100%": e.g. with the 3rd-try guarantee active on 2026 men, 17% of all
+  # plotted points were hard-set to 100% this way, overlapping the SAME
+  # ticket range as genuinely-drawn applicants (median ticket count of the
+  # auto-selected group was actually close to the lottery pool's own
+  # median) -- nothing to do with having an enormous ticket count. Verified
+  # this is the whole story and not an odds-math problem: restricting to
+  # real Lottery-status applicants, calc_lottery_odds() and simulate_odds()
+  # agree closely and the highest odds anyone legitimately reaches under the
+  # 2026 default formula/picks is ~72%, not near 100%.
+  #
+  # Fix: filter to SelectionStatus == "Lottery" before plotting, so this
+  # chart only ever shows points where Odds_Exact/Odds_MC are actually
+  # outputs of the two draw-probability calculations being compared. A
+  # caption reports how many applicants were excluded as a reminder that
+  # they exist (guaranteed in, or removed) -- they just don't belong on a
+  # chart about how the probabilistic draw treats ticket counts.
   output$oddsDistW <- renderPlot({
-    df <- assigned_data() %>% filter(Gender == "Female")
+    df_all <- assigned_data() %>% filter(Gender == "Female")
+    df <- df_all %>% filter(SelectionStatus == "Lottery")
+    n_excluded <- nrow(df_all) - nrow(df)
+    caption <- if (n_excluded > 0) {
+      sprintf("%d of %d women excluded (guaranteed in or removed by a discrete rule, not drawn)",
+              n_excluded, nrow(df_all))
+    } else NULL
     ggplot() +
       geom_jitter(data = df, aes(x = tickets, y = Odds_Exact, color = "Direct"), width = 0.1, height = 0) +
       geom_jitter(data = df, aes(x = tickets, y = Odds_MC, color = "Monte Carlo"), width = 0.1, height = 0) +
       scale_color_manual(values = c("Direct" = "#2270AE", "Monte Carlo" = "#B7822E")) +
       scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0,1)) +
-      labs(x = "Tickets", y = "Odds", color = "Method", title = "Women: Ticket vs Odds (Both Methods)") +
+      labs(x = "Tickets", y = "Odds", color = "Method",
+           title = "Women: Ticket vs Odds (Both Methods)",
+           subtitle = "Lottery-eligible applicants only -- excludes guaranteed/removed applicants",
+           caption = caption) +
       theme_minimal()
   })
 
   output$oddsDistM <- renderPlot({
-    df <- assigned_data() %>% filter(Gender == "Male")
+    df_all <- assigned_data() %>% filter(Gender == "Male")
+    df <- df_all %>% filter(SelectionStatus == "Lottery")
+    n_excluded <- nrow(df_all) - nrow(df)
+    caption <- if (n_excluded > 0) {
+      sprintf("%d of %d men excluded (guaranteed in or removed by a discrete rule, not drawn)",
+              n_excluded, nrow(df_all))
+    } else NULL
     ggplot() +
       geom_jitter(data = df, aes(x = tickets, y = Odds_Exact, color = "Direct"), width = 0.1, height = 0) +
       geom_jitter(data = df, aes(x = tickets, y = Odds_MC, color = "Monte Carlo"), width = 0.1, height = 0) +
       scale_color_manual(values = c("Direct" = "#2270AE", "Monte Carlo" = "#B7822E")) +
       scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0,1)) +
-      labs(x = "Tickets", y = "Odds", color = "Method", title = "Men: Ticket vs Odds (Both Methods)") +
+      labs(x = "Tickets", y = "Odds", color = "Method",
+           title = "Men: Ticket vs Odds (Both Methods)",
+           subtitle = "Lottery-eligible applicants only -- excludes guaranteed/removed applicants",
+           caption = caption) +
       theme_minimal()
   })
 

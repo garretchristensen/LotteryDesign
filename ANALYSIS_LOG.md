@@ -4,6 +4,118 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 — Dashboard (app.R): fixed "Ticket vs Odds" points piling up at 100%
+
+**Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**
+Garret should review the diff and deploy himself.
+
+### Bug report
+
+Garret noticed an unexpectedly large number of the "Distribution of Odds
+(Tickets vs Odds)" dot plots' Monte Carlo-simulated points sitting at or
+near 100%, when only applicants with enormous ticket counts relative to the
+pool should ever approach certainty.
+
+### Root cause: category error, not an odds-math bug
+
+`oddsDistW`/`oddsDistM` plot `assigned_data()` for the gender with **no
+filter on `SelectionStatus`**. But `assigned_data()` hard-sets
+`Odds_Exact <- 1` / `Odds_MC <- 1` for every `"Auto-Selected"` row and
+`<- 0` for every `"Removed"` row -- these are categorical overrides, not
+outputs of `calc_lottery_odds()`/`simulate_odds()` at all (those two
+functions are only ever called on `SelectionStatus == "Lottery"` rows).
+`"Auto-Selected"` covers two real things: (a) 2026 preselects (29 M / 11 F,
+*always* marked this way whenever 2026 data loads, independent of any
+slider -- see the 2026-10-12 entry below) and (b) anyone qualifying under
+the sidebar's "Guaranteed-entry rule" (`auto_at`) when one is active. With
+no filter, every one of those applicants got plotted as a point at exactly
+y = 100% in the *same* "Direct"/"Monte Carlo" series as genuinely-drawn
+applicants, at whatever (often perfectly ordinary) ticket count their
+profile happened to produce -- nothing to do with having an enormous
+ticket count.
+
+Quantified with a standalone reproduction (`base_data()`/`processed_data()`
+logic re-run outside Shiny against `2026HLdata.csv`): with the 3rd-try
+guarantee (`auto_at = "2"`) active on 2026 men, **17.1% of all points that
+would be plotted (160 of 935) were hard-set to 100% this way** -- and their
+ticket-count range (median 8, up to 45) overlapped the *same* range as
+genuinely-drawn lottery applicants (median 2, up to ~11), confirming these
+weren't legitimately-high-ticket people, just guaranteed-in people with
+ordinary ticket counts. Even with no `auto_at` rule at all, 2026 preselects
+alone contaminate 29 men's / 11 women's points every time 2026 data is
+viewed.
+
+Checked the other hypotheses and ruled them out:
+- **Not a Monte Carlo denominator bug.** `simulate_odds()` correctly
+  computes P(drawn in one simulated draw) -- `counts[picks] <- counts[picks]
+  + 1` per rep, divided by `n_sim` at the end -- not P(ever drawn across
+  reps). Confirmed `calc_lottery_odds()` and `simulate_odds()` agree closely
+  on the real `SelectionStatus == "Lottery"` subset.
+- **Not a small-pool mean-field artifact.** Restricting to genuine
+  `"Lottery"`-status 2026 men (906 of them, 95 picks, the default formula),
+  the *highest* odds anyone legitimately reaches is ~72%
+  (`sum(calc_lottery_odds(...)) == 95` as the sanity check, matching
+  `simulate_odds()` to within simulation noise) -- nowhere near 100%, and
+  nobody is close. So "legitimately high odds from legitimately high
+  tickets" was not happening anywhere in the data checked; every point at
+  or near 100% was a categorical override leaking into the chart.
+
+### Fix
+
+Filter both plots to `SelectionStatus == "Lottery"` before plotting --
+this chart's whole purpose is comparing the two *draw-probability*
+calculation methods against each other, which is meaningless for
+applicants who bypass the draw entirely. Added a subtitle/caption to each
+plot reporting how many applicants were excluded, so the exclusion is
+visible rather than silent (Caleb/Garret can still see e.g. "160 of 935 men
+excluded" and know the guarantee rule is doing a lot of work, just not on
+this particular chart).
+
+### Related bug found via regression testing (same code path)
+
+While testServer-regression-testing the fix across all 4 years x 4
+`auto_at` settings x 2 odds methods, found that when the guaranteed-entry
+tier already equals or exceeds `Nm`/`Nw` on its own (`n_picks_m`/`n_picks_w`
+computed as 0), the remaining genuine `"Lottery"`-status applicants were
+left at `Odds_Exact`/`Odds_MC`'s `NA_real_` default instead of their true
+value, which is exactly 0 (nobody is left to draw). ggplot silently drops
+NA points, so this wasn't the reported "piling up at 100%" symptom, but
+it's the same code region (`assigned_data()`'s picks<=0 branch, previously
+missing) and is wrong in the same spirit -- fixed by setting
+`Odds_Exact[idx] <- 0; Odds_MC[idx] <- 0` when `length(idx) > 0` but
+`picks <= 0`. Reproduces with 2026 men + `auto_at = "2"` (3rd try): 775
+genuine lottery men, all correctly 0%, zero `NA`s, instead of 775 silently
+dropped `NA` points.
+
+### Testing
+
+Standalone `Rscript` reproduction against `2026HLdata.csv` (outside Shiny)
+to quantify the contamination and separately confirm the mean-field/Monte
+Carlo odds themselves are not the problem (see Root cause above). Then
+`shiny::testServer()` regression across all 4 data years x all 4 `auto_at`
+settings (`none`/`2`/`3`/`4`) x both `deterministic` and `mc1000` odds
+methods, asserting for each: every plotted point's relevant odds column is
+non-`NA` and <= 1, and every plotted row's `SelectionStatus` really is
+`"Lottery"` (nothing categorical leaked through the new filter). Also
+rendered `output$oddsDistM`/`output$oddsDistW` directly in each scenario to
+confirm no rendering errors. All scenarios passed after both fixes above.
+
+### Does this change how the dashboard's other plots should be read?
+
+No -- this was specific to `oddsDistW`/`oddsDistM`. The "Expected # Picked"
+bar charts (`histW`/`histM`/`finHistW`/`finHistM`) correctly include
+Auto-Selected/Removed applicants' hard-set odds in their `sum()`, because
+those charts are about total expected picks across *everyone*, guaranteed
+or not -- excluding the guaranteed tier there would under-count real
+picks. Only the tickets-vs-odds scatter, whose specific job is comparing
+the two probabilistic-draw calculations against each other, needed the
+exclusion. The pre-existing cosmetic "Monte Carlo layer draws even in
+Deterministic mode, all-NA, dropped with a harmless warning" issue noted in
+the 2026-10-12 entry is unrelated and still not fixed (out of scope here
+too).
+
+---
+
 ## 2026-10-12 — Dashboard (app.R): fixed 2026 data crash, added interactive knobs
 
 **Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**
