@@ -4,6 +4,21 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 (5) — Dashboard (app.R): year selector default corrected to 2026
+
+**Status: local changes only, in a git worktree, NOT committed to main/pushed/deployed.**
+
+Correction from Garret on entry (4) below: the previous round verified
+`selected = "2025"` on `selectInput("year_select", ...)` and left it alone
+as already-correct, but Garret actually wants the default to be **2026**,
+not 2025. Changed `selected = "2025"` to `selected = "2026"` (line ~300 of
+`app.R`). Re-rendered the real `ui` object (`as.character(ui)`) and
+confirmed the served HTML now shows `<option value="2026"
+selected>2026</option>`. One-line fix, verified the same way as last
+round.
+
+---
+
 ## 2026-10-13 (4) — Dashboard (app.R): fixed 3 UI issues Garret hit running the app in RStudio
 
 **Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**
