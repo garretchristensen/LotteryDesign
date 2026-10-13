@@ -4,6 +4,44 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 (12) — Merging dashboardguy's branch into main
+
+**Rollback point:** before this merge, `main` is tagged
+`pre-dashboard-merge-2026-10-13` (pointing at commit 9a2cbf6, the last
+commit before any of dashboardguy's `app.R` work lands on `main`). To
+revert the dashboard to the pre-redesign version:
+
+    git checkout pre-dashboard-merge-2026-10-13 -- app.R lottery_projection.R
+
+or, to roll `main` all the way back:
+
+    git reset --hard pre-dashboard-merge-2026-10-13
+
+That tag is the single rollback anchor for everything described below.
+
+**What's being merged**, from branch `worktree-agent-a58abef50e243d5a8`
+(14 commits, dashboardguy -- a forked background agent, not written by
+Garret, though reviewed and steered by him and Claude round by round all
+day): the 2026-data/Monte-Carlo crash fixes, the odds-dot-plot
+guaranteed-entry contamination fix, the generalized RAMP/FLOOR/MAX-BOOST
+knob for the finish-bonus term `k` (applying to every formula family
+except `caleb`, where `k` is additive rather than exponential), the new
+"Garret's decoupled proposal" formula family (`b^n * 2^(k+v+t)`, with its
+own v_scale/t_scale/t_cap sliders), the dynamic ticket-formula display
+string, the collapsible Finish-Bonus-Ramp help text, the default-year
+correction (2026), and the repositioned Guaranteed-Entry Snapshot box
+(now a standalone element between the odds results and the Multi-Year
+Projection section, visible only once a guarantee rule is selected). Full
+round-by-round detail for all of this is in the entries below this one
+(dashboardguy's own log entries, carried over verbatim by the merge).
+
+Still true after the merge: nothing has been pushed to GitHub, nothing
+has been deployed to shinyapps.io. The live site at
+garretchristensen.shinyapps.io/LotteryDesign/ is unaffected until Garret
+deploys explicitly.
+
+---
+
 ## 2026-10-13 (2) — Decoupled formula design; fact-checking Garret's draft reply to Caleb
 
 Continuation of same-day work: designed the `b^n * 2^(min(1,k)) * c^(v+t)`-style
