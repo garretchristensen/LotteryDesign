@@ -344,15 +344,33 @@ ui <- fluidPage(
       numericInput("Nm", "Number of Men to Pick:", min = 0, max = 200, value = default_nm),
       numericInput("Nw", "Number of Women to Pick:", min = 0, max = 200, value = default_nw),
       h4("Finish-Bonus Ramp (k)"),
-      helpText(
-        "The current formula's finish bonus (k) ramps up with each lifetime ",
-        "race finish, then deliberately DROPS BACK DOWN to a floor -- so a ",
-        "mega-veteran (think Hardrock 100's 10+-time finishers, who get ",
-        "near-guaranteed entry) never earns more benefit than someone who's ",
-        "finished exactly 'Ramp length' times. These two sliders let you ",
-        "replay that same shape with different knobs. Defaults (ramp = 3, ",
-        "floor = 0.5) exactly reproduce today's production rule -- nothing ",
-        "changes until you move them."
+      # Garret's UI feedback (2026-10-13, item 3): this explanatory helpText
+      # used to always render inline, permanently eating sidebar space even
+      # though most visits don't need it. Made collapsible, hidden by
+      # default, using the EXACT same show/hide idiom this app already uses
+      # everywhere else (introPanel/avgOddsPanel/oddsPanel/oddsDistPanel/
+      # histAppsPanel/histFinPanel/projectionPanel, all a few lines above
+      # and below this one): an actionLink/actionButton bound to a
+      # server-side observeEvent() that calls shinyjs::toggle(id = ...) on a
+      # div wrapped in hidden() so it starts closed. Reusing this pattern
+      # (rather than introducing bslib::accordion or a <details> tag, which
+      # nothing else in this file uses) keeps every collapsible section in
+      # the app working the same way.
+      actionLink("toggleKRampInfo",
+                 HTML("&#8505;&#65039; More info on the ramp/floor shape")),
+      hidden(
+        div(id = "kRampInfoPanel",
+          helpText(
+            "The current formula's finish bonus (k) ramps up with each lifetime ",
+            "race finish, then deliberately DROPS BACK DOWN to a floor -- so a ",
+            "mega-veteran (think Hardrock 100's 10+-time finishers, who get ",
+            "near-guaranteed entry) never earns more benefit than someone who's ",
+            "finished exactly 'Ramp length' times. These two sliders let you ",
+            "replay that same shape with different knobs. Defaults (ramp = 3, ",
+            "floor = 0.5) exactly reproduce today's production rule -- nothing ",
+            "changes until you move them."
+          )
+        )
       ),
       sliderInput("k_ramp", "Ramp length (finishes until the bonus maxes out):",
                   min = 1, max = 6, value = 3, step = 1),
@@ -532,6 +550,9 @@ server <- function(input, output, session) {
   }, ignoreInit = TRUE)
 
   observeEvent(input$toggleIntro, { shinyjs::toggle(id = "introPanel") })
+  # Garret's UI feedback item 3 (2026-10-13): collapsible finish-bonus-ramp
+  # explanation, same toggle idiom as every other collapsible section here.
+  observeEvent(input$toggleKRampInfo, { shinyjs::toggle(id = "kRampInfoPanel") })
   observeEvent(input$toggleAvgOdds, { shinyjs::toggle(id = "avgOddsPanel") })
   observeEvent(input$toggleOdds, { shinyjs::toggle(id = "oddsPanel") })
   observeEvent(input$toggleOddsDist, { shinyjs::toggle(id = "oddsDistPanel") })

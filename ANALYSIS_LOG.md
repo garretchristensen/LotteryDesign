@@ -4,6 +4,95 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 (4) — Dashboard (app.R): fixed 3 UI issues Garret hit running the app in RStudio
+
+**Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**
+Garret should review the diff and deploy himself.
+
+Garret ran this worktree's app.R in RStudio (after the (3) decoupled-formula
+entry below) and reported three UI problems. Investigated each before
+touching anything, per usual practice on this branch (extend, don't
+reimplement):
+
+1. **"Default data year should be 2025, not whatever it currently
+   defaults to."** Checked `selectInput("year_select", ...)` -- it already
+   reads `selected = "2025"`, and no `updateSelectInput()` anywhere
+   overrides it. Rendered the real `ui` object (`htmltools::doRenderTags`)
+   and also ran the live app and curled its served HTML: both show
+   `<option value="2025" selected>2025</option>`. **No code change was
+   needed here** -- this was already correct in the (3) commit Garret was
+   running. Likely explanation: Garret saw an older cached session, or
+   conflated this with issue 2 below (see next item). Left as-is; verified
+   working, not just assumed.
+
+2. **"The ticket-formula display is static text... shows 2^(0+0+1) +
+   2*log(0+0+1) no matter what."** Read `output$ticketFormula` closely: it
+   already builds its string from `input$exp`, `input$mult`,
+   `input$formula_family`, `input$odds_toggles`, and the Example Applicant
+   Profile sliders (`apps`/`finishes`/`volunteer`/`trailwork`, via
+   `derive_k_from_finishes()`), with a `switch()` arm per formula family
+   including `garret_decoupled`'s `b^n * 2^(k+v+t)` shape -- fully dynamic,
+   generic across all four families already. The catch: **every one of
+   those sliders defaults to 0**, so on first load (before touching any
+   slider) it renders exactly `Tickets = 2^(0 + 0 + 1) + 2 * log(0 + 0 +
+   1)` -- precisely what Garret described. That's the formula correctly
+   evaluated at the all-zero example profile, not a static string; it's
+   indistinguishable from "hardcoded zeros" unless you actually move a
+   slider. **No code change was needed here either** -- confirmed by
+   running `shiny::testServer()` against the real server function (not a
+   reimplementation) across 5 scenarios: `current` at defaults, `current`
+   with apps=4/finishes=2/volunteer=7/trailwork=3 (text changed from the
+   defaults case), `pure_power` at exp=4, `caleb` at exp=3/apps=3, and
+   `garret_decoupled` at b=3/n=2/k=1/v=2/t=0.5 -- every family's displayed
+   string correctly substituted the live values, and swapping
+   `formula_family` alone (same example sliders) also changed the text.
+   Logged here anyway, with the verification, since Garret's report named
+   this as a problem and the fix is "move a slider and look again," not a
+   code change.
+
+3. **"Finish-Bonus Ramp explanation text should be collapsible."** This
+   one was real: the `a4e6692` commit's helpText (the k ramp/floor
+   explanation) rendered unconditionally, permanently taking up sidebar
+   space. Fixed by reusing the EXACT toggle idiom already used for every
+   other collapsible section in this app (`introPanel`, `avgOddsPanel`,
+   `oddsPanel`, `oddsDistPanel`, `histAppsPanel`, `histFinPanel`,
+   `projectionPanel`): wrapped the helpText in `hidden(div(id =
+   "kRampInfoPanel", ...))` so it starts closed, and added an
+   `actionLink("toggleKRampInfo", "ℹ️ More info on the ramp/floor shape")`
+   bound to a new `observeEvent(input$toggleKRampInfo, {
+   shinyjs::toggle(id = "kRampInfoPanel") })` in the server, right next to
+   the near-identical `toggleIntro` observer. No new toggle mechanism
+   introduced (no `bslib::accordion`, no `<details>`) -- this app already
+   has one pattern for "collapsible section," so this just adds a seventh
+   instance of it rather than an eighth kind of thing.
+
+### Verification (all three, against the real app.R)
+
+- Rendered the actual `ui` object to HTML (`htmltools::doRenderTags`) and
+  separately launched the real app with `shiny::runApp()` on a local port
+  and `curl`'d the served page -- both confirm `year_select` shows 2025
+  selected, and show the new `toggleKRampInfo` link plus a
+  `kRampInfoPanel` div with class `shinyjs-hide` (i.e. hidden by default,
+  containing the "DROPS BACK DOWN to a floor" text, confirming the content
+  survived the refactor and is only hidden, not deleted).
+- Used `shiny::testServer()` against the real server function for issue 2,
+  covering `current`/`pure_power`/`caleb`/`garret_decoupled` (4 of the 4
+  families) at distinct slider settings, plus an explicit
+  before/after-slider-move comparison within `current` and an explicit
+  same-sliders-different-family comparison -- all showed the displayed
+  formula text changing as expected, no family left static.
+- Killed the temporary local app process after curling it; nothing left
+  running.
+
+### Files touched
+
+Only `app.R`: added the `toggleKRampInfo`/`kRampInfoPanel` UI (sidebar,
+"Finish-Bonus Ramp (k)" section) and its server `observeEvent`. No changes
+to `lottery_projection.R` or any data file. Not merged to main, not
+pushed, not deployed to shinyapps.io.
+
+---
+
 ## 2026-10-13 (3) — Dashboard (app.R): added Garret's decoupled proposal as a selectable formula family
 
 **Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**
