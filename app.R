@@ -297,7 +297,7 @@ ui <- fluidPage(
         selected = "current"
       ),
       uiOutput("ticketFormula"),
-      selectInput("year_select", "Data Year:", choices = c("2026", "2025", "2024", "2023"), selected = "2025"),
+      selectInput("year_select", "Data Year:", choices = c("2026", "2025", "2024", "2023"), selected = "2026"),
       sliderInput("exp", "Exponent / Base:", min = 2, max = 5, value = 2, step = 0.5),
       # The multiplier only applies to the "current" family's log(service+1)
       # term -- the other two families don't have a separately-weighted
