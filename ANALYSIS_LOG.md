@@ -4,6 +4,71 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 (2) — Decoupled formula design; fact-checking Garret's draft reply to Caleb
+
+Continuation of same-day work: designed the `b^n * 2^(min(1,k)) * c^(v+t)`-style
+decoupled formula (separate base for n-steepness vs. a hard-capped
+veteran/finish multiplier vs. an optionally-uncapped service multiplier --
+see math below), fact-checked Garret's near-final draft reply to Caleb against
+the real data, and corrected a mistake of my own in that fact-check.
+
+**Decoupling insight.** Caleb's two-term proposal (`4^n + n(k+v+t)`) fails two
+ways: numerically it's a no-op vs. `4^(n+k)` (nearly identical odds at every
+n), and it's zero at n=0 so trailwork does nothing for first-time applicants,
+then grows unboundedly for veterans -- the inverse of what "reward service
+fairly" should look like. An additive `(n+1)` term fixes the n=0 dead zone
+but overcorrects: a single service point then swamps a rookie's tiny ticket
+base (2x) while being nearly invisible to a high-n veteran (1.06x), because
+the bonus term grows linearly while the `4^n` base grows exponentially under
+it. Any additive-on-top-of-exponential term has this problem.
+
+The clean fix is to decouple onto a second, independent base entirely:
+`Tickets = b^n * 2^(f(k,v,t))`, where `b` controls only how steeply waiting
+matters (year-3 cohort convergence is ~23% regardless of b = 2, 3, or 4 --
+confirmed again below -- so there's no backlog-clearing reason to prefer a
+higher b; it's a political/visual choice about curve steepness, not a
+substantive one), and the second factor is a *flat* multiplier on top,
+independent of n. With `f = min(1, k)` (k capped at 1, e.g. via steps
+0.5/0.75/1 over 3 finishes then reset to 0.5 forever), the veteran-specific
+multiplier is hard-capped at exactly `2^1 = 2x`, by construction, matching
+Garret's explicit design goal ("doubling is the ideal max benefit for being a
+vet") -- and critically, since `2^(k+v+t) = 2^k * 2^(v+t)` by the laws of
+exponents, k's cap bounds *only* the finisher-specific slice. Adding
+uncapped v/t terms into the same written exponent does NOT break that cap --
+it just rides a second, genuinely separate multiplicative factor. (I got this
+backwards once in live fact-checking -- see "Mistake" below.)
+
+**Fact-check of Garret's draft reply to Caleb.** Verified against the data:
+the n-based odds table (99/27/5 men at n=2/3/4, matching `load_pool_2026()`
+exactly), the 5-year cumulative P(in) table for all three bases (confirmed by
+rerunning: current 6/14/23/35/49%, base3 3/11/23/43/68%, base4 2/9/23/49/80% --
+exact match), and the auto-entry break years (2029-30 for try-4, 2032-33 for
+try-5). Two real corrections surfaced and were sent back to Garret:
+- "4^ makes it harder to get in by year 3" doesn't match the rerun or his own
+  table -- year 3 is a near-exact three-way tie (23.1/23.1/23.3%). The honest
+  framing is worse at years 1-2, roughly even at year 3, better at years 4-5
+  for higher bases.
+- "Veterans will have 3x/4x odds" under base 3/4 overstates the typical case:
+  79% of finishers have exactly 1 finish (k=0.5), whose mechanistic multiplier
+  is `base^0.5` (1.73x under base3, 2.00x under base4) -- the full 3x/4x
+  figure only applies to the smaller 2-finish (k=1) group.
+
+**Mistake (logged so I don't repeat it -- see `[[feedback-dont-overliteral-caps]]`
+in my memory system):** I flagged Garret's draft as internally inconsistent --
+"k maxes at 1 so veterans can't exceed 2x" next to "v should go sky-high,
+uncapped" -- treating "2x cap" as a claim about the *combined* `2^(k+v+t)`
+total. It isn't; it's scoped to the k-sourced factor alone, and
+`2^k * 2^(v+t)` cleanly isolates that regardless of how large v+t gets. No
+contradiction existed. Garret (correctly) called this out as over-literal
+interpretation -- the same mistake, in miniature, as an earlier exchange this
+same day where I treated "veterans doing trailwork" as some suspicious
+causal-fairness problem instead of just two independent facts about a person.
+Lesson: before flagging a design statement as internally inconsistent, do the
+algebra / isolate the component the claim is actually scoped to, rather than
+pattern-matching "capped" against "uncapped" in the same paragraph.
+
+---
+
 ## 2026-10-13 — Caleb's full email, auto-entry refinements, dashboard debugging
 
 ### Bottom line
