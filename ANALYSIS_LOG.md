@@ -4,6 +4,176 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 (3) — Dashboard (app.R): added Garret's decoupled proposal as a selectable formula family
+
+**Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**
+Garret should review the diff and deploy himself.
+
+### What this is
+
+Implements the `Tickets = b^n * 2^(k+v+t)` design from main's 2026-10-13
+"Decoupled formula design; fact-checking Garret's draft reply to Caleb" log
+entry as a fourth, selectable `formula_family` option in the dashboard
+(alongside `current`/`pure_power`/`caleb` -- Caleb's own `4^n + n(k+v+t)`
+proposal is untouched). `b` is NOT a new slider -- it reuses the existing
+"Exponent / Base" slider every other family already shares, per the task's
+explicit instruction, with a small `observeEvent(input$formula_family, ...)`
+that nudges it (and `k_ramp`) to this family's own proposed defaults the
+moment you select it. The `2^(...)` multiplier is a second, independent
+base, ALWAYS fixed at 2 regardless of `b` -- its only job is bounding the
+max "being a veteran" bonus at exactly 2x, by construction, per the
+decoupling insight already worked out in that log entry
+(`2^(k+v+t) == 2^k * 2^(v+t)`, so capping k alone is not broken by leaving
+v uncapped in the same written exponent).
+
+### k: reused the existing ramp/floor knob, just a different default
+
+No new k-ladder was invented. `derive_k_from_finishes()` (built in this
+worktree's earlier 2026-10-13 "generalized the finish bonus" commit,
+`a4e6692`) already generalizes today's production k-rule into a
+ramp/floor pair. For this family, the only change is the DEFAULT: the same
+`observeEvent` above sets `k_ramp` to 2 (not 3) the instant you pick this
+family, so the ladder becomes finishes 0/1/2/3+ -> k = 0/0.5/1/0.5(floor)
+-- reaching the k=1 cap at 2 finishes, which is exactly what makes
+`2^1 = 2x` the hard ceiling on the veteran bonus at 2 finishes. The
+ramp/floor sliders stay visible and adjustable for every family, same as
+before; this is a UI nudge on entry, not a second code path, and it does
+NOT force the value back if you then move the slider yourself, nor does it
+restore b/ramp to 2/3 when you switch away -- consistent with how this app
+already treats every other shared slider (e.g. nothing resets "mult" when
+you leave "current").
+
+### v and t: new, independent scale/cap controls, only shown for this family
+
+Added three new sidebar sliders (`v_scale`, `t_scale`, `t_cap`), inside a
+`conditionalPanel` keyed to `formula_family == 'garret_decoupled'` so they
+don't clutter the UI for the other three families, which don't use them.
+The exponent contribution from service is `v/v_scale + min(t/t_scale,
+t_cap)` -- volunteering uncapped (per Garret's explicit "sky high" request),
+trailwork capped (per Garret's explicit "harder to verify and perhaps of
+more variable quality in practice" reasoning).
+
+**Defaults chosen, and why**, checked against the real `Volunteer_Points`/
+`Extra_Trailwork_Points` distributions across all 4 data years (2023-2026):
+
+- `v_scale = 4` (4 volunteer points = +1 in the exponent = another full 2x,
+  matching the task's own suggested example). Checked against the data:
+  median NONZERO volunteer total is only ~2.5-3.5 points across years (most
+  applicants have 0), so a typical volunteer gets a modest ~1.5-1.8x bump,
+  while the real tail is wide -- p99 is 14-25 points, max observed is 17-30
+  -- giving multipliers from ~11x at p99 up to ~181x at the observed max
+  (30 points / 2026's cap). That's genuinely "sky high" and uncapped, as
+  asked, without needing a special-cased huge default scale.
+- `t_scale = 8`, `t_cap = 0.5`. The cap value (0.5) is the task's own
+  suggested example -- exactly what one race finish is worth, so no amount
+  of trailwork can ever outweigh a single finish. The scale (8, saturating
+  at 4 raw trailwork points) was chosen deliberately HIGHER than v_scale's 4
+  -- i.e. each trailwork point earns only HALF the per-point exponent credit
+  volunteering gets, on top of the hard cap -- so trailwork is doubly
+  conservative (lower rate AND a ceiling), matching Garret's stated reason
+  for treating it differently. Checked against the data: nonzero trailwork
+  medians are ~1-1.25 points across years, so most real trailwork
+  contributors (p50-p75) get real, graduated credit below the cap; only the
+  heaviest contributors (roughly p85-p99+, well within the observed 0-10
+  point range) are saturated. A naive `t_scale = 4` (matching v_scale) would
+  have put the cap at just 2 raw points, saturating roughly HALF of all
+  nonzero trailworkers immediately -- rejected as too aggressive to call
+  "graduated," even though the end state (hard cap at 0.5) is intentional.
+- Slider ranges: `v_scale`/`t_scale` 1-20 step 1 (min 1 to avoid a
+  divide-by-zero), `t_cap` 0-2 step 0.25 (same step as the existing
+  `k_floor` slider, range wide enough to push trailwork's cap well above
+  one finish's worth if Garret wants to experiment with that).
+
+### Wiring: no parallel calculation path
+
+Followed the same pattern as the two prior rounds of work on this branch
+(formula-family generalization, then k-ramp/floor generalization): extended
+the ONE existing shared function at each layer, rather than adding a second
+code path.
+
+- `apply_service_toggles()` (app.R) gained `family`/`v_scale`/`t_scale`/
+  `t_cap` parameters. For every other family it still returns exactly
+  `volunteer + trailwork` (with the existing "drop trailwork" toggle),
+  byte-for-byte the same as before. Only for `garret_decoupled` does it
+  return the rescaled `v/v_scale + min(t/t_scale, t_cap)` instead -- this is
+  the ONLY place v/t get rescaled; everywhere downstream just sees "the `s`
+  argument whatever `formula_fn(n, k, s)` already expects," unchanged in
+  shape.
+- `build_ticket_formula()` (lottery_projection.R) gained one more `switch()`
+  arm: `garret_decoupled = function(n, k, s) exp_val ^ n * 2 ^ (k + s)`. Same
+  `(n, k, s) -> tickets` signature as every other family.
+- Both call sites of `apply_service_toggles()` -- `base_data()` (real
+  applicant pools) and `output$userTickets` (the Example Applicant Profile
+  preview) -- now pass `input$formula_family`/`v_scale`/`t_scale`/`t_cap`
+  through. `output$ticketFormula`'s live formula-text display got a new
+  `switch()` arm showing the actual rescaled v/t contributions, so what's
+  displayed always matches what's computed.
+- The multi-year projection engine needed NO changes at all beyond the
+  `build_ticket_formula()` arm above: `seed_groups_for_projection()` already
+  reads its `s` straight off `base_data()`'s `service` column, which is
+  already correctly family-rescaled by the time it gets there.
+
+### Sanity checks (per task requirement 4)
+
+Standalone checks of the formula math directly (not through Shiny):
+- Rookie (k=0, s=0) at n = 0/1/2/3/5 under b=3: tickets = 1/3/9/27/243 =
+  `b^n` exactly, as expected -- nonzero and sensible at every n.
+- 2-finish veteran (k=1, the ramp=2 default's cap) vs. 0-finish (k=0) at the
+  same n, s: ratio is exactly 2.0000 at n = 0, 2, and 4 -- confirms the 2x
+  veteran cap holds regardless of n, by construction (`2^k` factors out of
+  `2^n`... no, out of `2^(k+s)`, independent of the `b^n` term entirely).
+- Large v (`v_scale=4`): v=0/4/8/20/30 -> multiplier vs. v=0 of
+  1x/2x/4x/32x/181x -- confirms "sky high" is not accidentally capped; grows
+  without bound as v grows.
+- Large t (`t_scale=8, t_cap=0.5`): t=0/2/4/8/10/100/100000 -> multiplier
+  1.00x/1.19x/1.41x/1.41x/1.41x/1.41x/1.41x -- confirms saturation at the
+  cap (`2^0.5 = 1.414x`) by t=4 and staying there regardless of how large t
+  gets afterward.
+
+Then `shiny::testServer()` against the REAL app.R (not a reimplementation),
+with `formula_family = "garret_decoupled"`:
+- All 4 data years (2023-2026) at this family's defaults (`exp=3, k_ramp=2,
+  k_floor=0.5, v_scale=4, t_scale=8, t_cap=0.5`): `base_data()$tickets` has
+  no NAs, no non-positive values, on every year; `assigned_data()` has no
+  NA odds for any `SelectionStatus == "Lottery"` row; every existing output
+  (`ticketFormula`, `userTickets`, `kRampPlot`, both odds table pairs, all
+  4 histograms, both odds-dist scatter plots, `autoSnapshot`) rendered
+  without error on every year.
+- Extreme slider combination (2026 data, `exp=5, k_ramp=6, k_floor=0,
+  v_scale=1, t_scale=20, t_cap=2`, plus every discrete-rule toggle turned on
+  at once and Monte Carlo odds): no NAs, no crashes; max ticket count
+  reached ~1.3e8 (an extreme-but-finite number, as expected from stacking
+  every slider at its extreme simultaneously) and all outputs still
+  rendered.
+- Degenerate scale values (`v_scale=1, t_scale=1, t_cap=0`, which would be
+  `0/0 = NaN` if `trailwork` could be 0 AND `t_scale` could be 0 -- guarded
+  against by the slider's own `min = 1`): confirmed `is.finite()` holds for
+  every ticket value.
+- A real `shiny::runApp()` launch on a local port with this family selected
+  also returned HTTP 200.
+
+The only warnings seen anywhere in this testing were the pre-existing,
+already-documented-as-out-of-scope cosmetic warning from the 2026-10-12 log
+entry ("Monte Carlo layer draws even in Deterministic mode, all-NA, dropped
+by ggplot with a harmless warning") -- not something this change introduced
+or needed to fix.
+
+### Left for Garret to review before deploying
+
+- The choice of `t_scale = 8` (vs. matching `v_scale`'s 4) is a judgment
+  call, not something Caleb specified -- flagged above with the reasoning
+  and the data check that motivated it; easy to change via one slider
+  default if Garret disagrees.
+- As with the k-ramp/floor work, the `observeEvent` that nudges `exp`/
+  `k_ramp` to this family's defaults only fires going INTO this family, not
+  coming back out -- so switching to `garret_decoupled` and back to
+  `current` in the same session can leave `exp`/`k_ramp` at 3/2 instead of
+  today's production 2/3, unless you reset them yourself. Not a bug in the
+  new family's own math, just a minor shared-slider UX wrinkle worth
+  knowing about if demoing both back-to-back for Caleb.
+
+---
+
 ## 2026-10-13 — Dashboard (app.R): generalized the finish bonus (k) into a ramp/floor knob
 
 **Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**

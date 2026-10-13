@@ -188,9 +188,43 @@ reconstruct_2026_raw_finishes <- function(weighted_finishes, runner_id,
 # volunteering)" checkbox only makes sense as a decision about which raw
 # point totals feed INTO the formula, so it's applied here, once, rather
 # than separately in every place that needs a service total.
-apply_service_toggles <- function(volunteer, trailwork, toggles) {
+#
+# GENERALIZED (2026-10-13, same session as the k ramp/floor knob) to also
+# produce the "garret_decoupled" family's exponent contribution, per
+# ANALYSIS_LOG.md's "Decoupled formula design" entry. Every OTHER family
+# (current / pure_power / caleb) still gets back exactly `volunteer +
+# trailwork` as before -- this function's return value is always just "the
+# `s` argument whatever formula_fn(n, k, s) expects", and for those three
+# families that's the simple raw-point sum, unchanged.
+#
+# For "garret_decoupled" specifically, the raw points are rescaled BEFORE
+# summing, per Garret's explicit design split:
+#   - volunteering: v / v_scale, deliberately left UNCAPPED ("sky high" is
+#     the design goal -- a big volunteer total should keep paying off, not
+#     flatten out).
+#   - trailwork: min(t / t_scale, t_cap), deliberately CAPPED -- Garret's
+#     own reasoning is that trailwork is "harder to verify and perhaps of
+#     more variable quality in practice" than volunteering, so its
+#     contribution is bounded no matter how large the raw point total gets.
+# Doing the rescale here (rather than inside build_ticket_formula()) means
+# build_ticket_formula()'s garret_decoupled case can stay a plain
+# `exp_val^n * 2^(k+s)`, identical in shape to how every other family
+# already consumes `s` -- no second/parallel calculation path, just a
+# family-aware version of the one function that already turns raw
+# volunteer/trailwork points into "the thing the formula adds".
+#
+# v_scale/t_scale/t_cap are only ever read when family == "garret_decoupled"
+# (the sidebar only shows those sliders then too), so their defaults here
+# are irrelevant to every other family -- kept only so this function has a
+# sane signature if ever called without them.
+apply_service_toggles <- function(volunteer, trailwork, toggles, family = "current",
+                                   v_scale = 4, t_scale = 8, t_cap = 0.5) {
   if ("drop_trail" %in% toggles) trailwork <- 0
-  volunteer + trailwork
+  if (identical(family, "garret_decoupled")) {
+    volunteer / v_scale + pmin(trailwork / t_scale, t_cap)
+  } else {
+    volunteer + trailwork
+  }
 }
 
 # build_app_formula(): wraps lottery_projection.R's build_ticket_formula()
@@ -257,7 +291,8 @@ ui <- fluidPage(
         choices = c(
           "Current system (power + log service credit)" = "current",
           "Pure power, no service credit (e.g. 3^(n+k) or 4^(n+k))" = "pure_power",
-          "Caleb's proposal: base^n + n*(finishes + service)" = "caleb"
+          "Caleb's proposal: base^n + n*(finishes + service)" = "caleb",
+          "Garret's decoupled proposal: b^n x 2^(k+v+t)" = "garret_decoupled"
         ),
         selected = "current"
       ),
@@ -270,6 +305,41 @@ ui <- fluidPage(
       conditionalPanel(
         condition = "input.formula_family == 'current'",
         sliderInput("mult", "Service-Credit Multiplier:", min = 1, max = 10, value = 2)
+      ),
+      # Garret's decoupled proposal (ANALYSIS_LOG.md, 2026-10-13 "Decoupled
+      # formula design" entry): Tickets = b^n * 2^(k + v/v_scale +
+      # min(t/t_scale, t_cap)). `b` reuses the "Exponent / Base" slider
+      # above (same control other families already use for their base --
+      # no separate slider, per the task's "reuse whatever base selector
+      # already exists" instruction); an observer below nudges it to 3 the
+      # moment you select this family, since that's Garret's own proposed
+      # default, but it stays a normal adjustable slider afterward. The
+      # `2^(...)` factor is a SEPARATE base, always fixed at 2 regardless of
+      # what `b` is set to -- its only job is bounding the veteran bonus at
+      # exactly 2x. k itself still comes from the "Finish-Bonus Ramp"
+      # sliders below (same ramp/floor knob as every other family) -- this
+      # family just wants a different DEFAULT ramp (2, not 3) so the k-cap
+      # of 1 (-> 2^1 = 2x) lands at 2 finishes instead of 3; that default is
+      # also nudged by the same observer. v and t get their own independent
+      # scale/cap controls here because Garret wants them to behave very
+      # differently: volunteering should go "sky high" (no cap at all),
+      # while trailwork -- "harder to verify and perhaps of more variable
+      # quality in practice" per Garret -- is deliberately capped low.
+      conditionalPanel(
+        condition = "input.formula_family == 'garret_decoupled'",
+        helpText(
+          "b (the base above) controls only how steeply waiting (n) matters; ",
+          "the veteran bonus is a SEPARATE factor, always base 2, capped at ",
+          "exactly 2x by the Finish-Bonus Ramp sliders below (default ramp ",
+          "2 for this family). Volunteer and trailwork points get their own ",
+          "scale/cap controls here, independent of k:"
+        ),
+        sliderInput("v_scale", "Volunteer scale (points per +1 in the exponent; left UNCAPPED on purpose -- 'sky high'):",
+                    min = 1, max = 20, value = 4, step = 1),
+        sliderInput("t_scale", "Trailwork scale (points per +1 in the exponent, before the cap below):",
+                    min = 1, max = 20, value = 8, step = 1),
+        sliderInput("t_cap", "Trailwork cap (max exponent contribution from trailwork, ever):",
+                    min = 0, max = 2, value = 0.5, step = 0.25)
       ),
       numericInput("Nm", "Number of Men to Pick:", min = 0, max = 200, value = default_nm),
       numericInput("Nw", "Number of Women to Pick:", min = 0, max = 200, value = default_nw),
@@ -439,6 +509,28 @@ withProgressSimulate <- function(tix, picks, n_sim, label = "Running Monte Carlo
 
 server <- function(input, output, session) {
 
+  # Nudge the shared "Exponent / Base" (b) and "Ramp length" (k_ramp)
+  # sliders to Garret's own proposed defaults (b=3, ramp=2) the moment the
+  # decoupled formula family is selected -- see ANALYSIS_LOG.md's
+  # 2026-10-13 "Decoupled formula design" entry and the task instructions
+  # this implements ("default to base 3 ... keep it adjustable" / "change
+  # the default ramp to 2 ... just change the DEFAULT when this formula
+  # family is active"). Both sliders are shared across all formula
+  # families (exactly like "mult" already is, hidden-but-not-reset when
+  # not "current") -- this only sets a starting point on entry to this
+  # family; it does NOT keep forcing the value back if you then adjust it,
+  # and deliberately does NOT restore b/ramp to 2/3 when you switch away,
+  # consistent with how this app already treats every other shared slider
+  # (nothing resets "mult" when you leave "current" either). ignoreInit =
+  # TRUE so this doesn't fire on initial app load (default family is
+  # "current", not this one).
+  observeEvent(input$formula_family, {
+    if (identical(input$formula_family, "garret_decoupled")) {
+      updateSliderInput(session, "exp", value = 3)
+      updateSliderInput(session, "k_ramp", value = 2)
+    }
+  }, ignoreInit = TRUE)
+
   observeEvent(input$toggleIntro, { shinyjs::toggle(id = "introPanel") })
   observeEvent(input$toggleAvgOdds, { shinyjs::toggle(id = "avgOddsPanel") })
   observeEvent(input$toggleOdds, { shinyjs::toggle(id = "oddsPanel") })
@@ -484,7 +576,17 @@ server <- function(input, output, session) {
         paste0(exp_val, "^(", k_val, " + ", apps, " + 1) + ", mult_val, " * log(", v_sim, " + ", t_sim, " + 1)")
       },
       "pure_power" = paste0(exp_val, "^(", apps, " + ", k_val, ")  [service points have no effect in this family]"),
-      "caleb" = paste0(exp_val, "^", apps, " + ", apps, " * (", k_val, " + ", (v_sim + t_sim), ")")
+      "caleb" = paste0(exp_val, "^", apps, " + ", apps, " * (", k_val, " + ", (v_sim + t_sim), ")"),
+      "garret_decoupled" = {
+        # Same rescale apply_service_toggles() applies for this family in
+        # base_data()/userTickets -- v uncapped, t capped -- shown here so
+        # the live display always matches what the actual draw uses.
+        v_contrib <- round(v_sim / input$v_scale, 2)
+        t_contrib <- round(pmin(t_sim / input$t_scale, input$t_cap), 2)
+        paste0(exp_val, "^", apps, " * 2^(", k_val, " + ", v_contrib, " + ", t_contrib,
+               ")  [b=", exp_val, " controls only n-steepness; the 2^(...) is a ",
+               "separate, fixed base-2 veteran/service multiplier, capped at 2x via k]")
+      }
     )
     HTML(paste0("<div class='formula-box'><span class='formula-highlight'>Tickets = ", formula_text, "</span></div>"))
   })
@@ -577,7 +679,8 @@ server <- function(input, output, session) {
       Extra_Trailwork_Points = pmin(as.numeric(Extra_Trailwork_Points), 10)
     )
 
-    df$service <- apply_service_toggles(df$Volunteer_Points, df$Extra_Trailwork_Points, input$odds_toggles)
+    df$service <- apply_service_toggles(df$Volunteer_Points, df$Extra_Trailwork_Points, input$odds_toggles,
+                                         input$formula_family, input$v_scale, input$t_scale, input$t_cap)
     formula_fn <- build_app_formula(input$formula_family, input$exp, input$mult, input$odds_toggles)
     df$tickets <- formula_fn(df$Previous_Applications, df$k, df$service)
     df
@@ -590,7 +693,8 @@ server <- function(input, output, session) {
     k_sim <- derive_k_from_finishes(input$finishes, input$k_ramp, input$k_floor)
     v_sim <- pmin(input$volunteer, 30)
     t_sim <- pmin(input$trailwork, 10)
-    s_sim <- apply_service_toggles(v_sim, t_sim, input$odds_toggles)
+    s_sim <- apply_service_toggles(v_sim, t_sim, input$odds_toggles,
+                                    input$formula_family, input$v_scale, input$t_scale, input$t_cap)
     formula_fn <- build_app_formula(input$formula_family, input$exp, input$mult, input$odds_toggles)
     round(formula_fn(input$apps, k_sim, s_sim), 2)
   })
