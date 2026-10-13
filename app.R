@@ -508,10 +508,6 @@ ui <- fluidPage(
       actionButton("runProjection", "Run multi-year projection", class = "collapsible-btn")
     ),
     mainPanel(
-      wellPanel(
-        h4("Guaranteed-Entry Snapshot (this year's data, no projection needed)"),
-        textOutput("autoSnapshot")
-      ),
       h3("Lottery Odds Summary"),
       actionButton("toggleAvgOdds", "Show/Hide Average Odds by Previous Applications", class = "collapsible-btn"),
       tags$div(
@@ -568,6 +564,21 @@ ui <- fluidPage(
       tags$div(
         id = "projectionPanel",
         tags$div(class = "collapsible-title", "Multi-Year Projection (Men's pool)"),
+        # Guaranteed-Entry Snapshot (moved here 2026-10-13 -- was the very
+        # first thing in mainPanel, above even "Lottery Odds Summary", so
+        # every visit led with this usually-inactive box before any of the
+        # core odds results. This section is about the same guaranteed-entry
+        # rule (does it become oversubscribed looking forward?), so the
+        # current-year snapshot of that same rule belongs right beside it.
+        # Wrapped in conditionalPanel so it only takes up space once a rule
+        # is actually selected -- see ANALYSIS_LOG.md for the reasoning.
+        conditionalPanel(
+          condition = "input.auto_at != 'none'",
+          wellPanel(
+            h4("Guaranteed-Entry Snapshot (this year's data, no projection needed)"),
+            textOutput("autoSnapshot")
+          )
+        ),
         h5("Does the current guaranteed-entry rule become oversubscribed?"),
         tableOutput("autoTierTable"),
         plotOutput("autoTierPlot"),

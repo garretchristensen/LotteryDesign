@@ -4,6 +4,82 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 (9) — Dashboard (app.R): moved Guaranteed-Entry Snapshot out of the top of the results
+
+**Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
+
+Garret's feedback: it's bad UI to have the "Guaranteed-Entry Snapshot"
+`wellPanel()` as the very first thing in `mainPanel(...)`, above even
+"Lottery Odds Summary" -- every visit to the app led with a usually-inactive
+box ("No automatic-entry guarantee is active.") before showing any of the
+core odds results.
+
+**Fix:** removed the `wellPanel(h4("Guaranteed-Entry Snapshot..."),
+textOutput("autoSnapshot"))` from the top of `mainPanel()` and moved it
+into the existing `projectionPanel` block, immediately before `h5("Does
+the current guaranteed-entry rule become oversubscribed?")`. That section
+is about the exact same guaranteed-entry rule (just the forward-looking,
+multi-year version), so the current-year snapshot of the rule's state now
+sits right next to its own longer-run analysis instead of hogging the top
+of the page. `mainPanel()` now leads with "Lottery Odds Summary" as its
+first content, as requested.
+
+**Also did (the optional part of the task):** wrapped the moved
+`wellPanel()` in `conditionalPanel(condition = "input.auto_at != 'none'",
+...)`. Reasoning: `autoSnapshot` always renders *something* -- when no
+guarantee rule is selected (the default, `auto_at == "none"`) it just
+prints "No automatic-entry guarantee is active." Now that the box lives
+next to the oversubscription analysis rather than at the top of the page,
+that empty-state message would just be dead space sitting above "Does the
+current guaranteed-entry rule become oversubscribed?" every time someone
+is *not* evaluating a guarantee rule -- which, per the UI's own `auto_at`
+default, is most of the time. Hiding it entirely until a rule is actually
+selected (`"2"`/`"3"`/`"4"`, i.e. guaranteed by 3rd/4th/5th try) means the
+box only ever appears when it has something concrete to report, consistent
+with how the "does it become oversubscribed" table/plot below it already
+behave (`output$autoTierTable` and `output$autoTierPlot` already return
+`NULL` when `auto_at == "none"` -- see the existing `if (input$auto_at ==
+"none") return(NULL)` guards in the server code around line 1259 (now
+shifted a few lines by this diff) -- so this just extends the same
+"nothing to show when no rule is active" convention to the snapshot box
+instead of leaving it as the one exception that always renders).
+
+One side effect worth flagging: the snapshot box is now inside the
+collapsible "Multi-Year Projection" `projectionPanel` div (toggled by the
+"Show/Hide Multi-Year Projection" button), so it's collapsed/hidden by
+default along with the rest of that section rather than always-visible on
+page load. This was a deliberate tradeoff, not an oversight -- the
+alternative (pulling it out of the collapsible div so it's always visible
+but still lower on the page) would have left it floating awkwardly between
+"Picks by Weighted Finishes" and the collapsible projection button, further
+from the oversubscription content it's actually paired with. If Garret
+wants it visible without expanding "Multi-Year Projection," the fix is to
+move the `conditionalPanel(...)` block just above the
+`actionButton("toggleProjection", ...)` line instead of inside
+`projectionPanel`'s `tags$div` -- flagging here rather than guessing which
+he'd prefer.
+
+**Verification:**
+- Rendered the real `ui` object (`as.character(ui)`) and checked string
+  positions: "Guaranteed-Entry Snapshot" now appears *after* "Lottery Odds
+  Summary" in the HTML (previously before), and only 184 characters before
+  "Does the current guaranteed-entry rule become oversubscribed?" -- i.e.
+  immediately adjacent, inside the same `projectionPanel` div. Confirmed
+  the `conditionalPanel` renders as `data-display-if="input.auto_at !=
+  'none'"` wrapping the `well` div in the output HTML.
+- `shiny::testServer()`: set a full explicit input list (`current` family,
+  2026 data, deterministic odds, etc.) and checked `output$autoSnapshot`
+  both with `auto_at = "none"` (renders "No automatic-entry guarantee is
+  active.") and `auto_at = "3"` (renders "Guaranteed entry at 3+ prior
+  losses, using 2026 data: 61 men already qualify (vs. 96 men's slots
+  total), 11 women already qualify (vs. 114 women's slots total)."). Both
+  render without error; only unrelated ggplot cosmetic warnings
+  ("Removed N rows ... geom_point()") from other reactive outputs appeared,
+  not errors.
+- `git diff` confirms the only change is the `wellPanel` relocation plus
+  its new `conditionalPanel` wrapper and an explanatory comment -- no
+  server-side logic touched.
+
 ## 2026-10-13 (8) — Dashboard (app.R): un-tabbed the sidebar (partial revert of `51e29e8`)
 
 **Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
