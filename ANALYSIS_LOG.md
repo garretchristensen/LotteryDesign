@@ -4,6 +4,71 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 (10) — Dashboard (app.R): corrected Guaranteed-Entry Snapshot placement (un-nested from Multi-Year Projection)
+
+**Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
+
+Garret's feedback on round (9) below: "Why would '(this year's data, no
+projection needed)' be instilled in the 'Multi-year projection' space?" He
+was right, and round (9)'s placement was a mistake, not what he asked for.
+Round (9) moved the `wellPanel(h4("Guaranteed-Entry Snapshot (this year's
+data, no projection needed)"), textOutput("autoSnapshot"))` -- wrapped in
+`conditionalPanel(condition = "input.auto_at != 'none'", ...)` -- from the
+top of `mainPanel()` to *inside* the collapsible "Multi-Year Projection"
+`tags$div(id = "projectionPanel", ...)` block, reasoning that both sections
+were "about the same guaranteed-entry rule." That reasoning doesn't survive
+contact with the box's own label: a box that explicitly advertises "no
+projection needed" has no business living inside the one section whose
+entire purpose is projection. Self-contradictory UI, exactly as Garret said.
+
+**Fix:** moved the same `conditionalPanel(...)`-wrapped `wellPanel(...)`
+(content and conditional wrapper both unchanged from round (9) -- only the
+wrapper was the right call, not the location) out of `projectionPanel`
+entirely. It's now a standalone sibling element in `mainPanel()`'s own
+flow, placed in the gap between the odds-results content above (Lottery
+Odds Summary / Detailed Odds / Distribution of Odds / the two "Picks by..."
+histogram sections) and the "Show/Hide Multi-Year Projection" button +
+`projectionPanel` div below -- not nested inside any projection-specific
+wrapper, div, or collapsible panel. This also fixes the side effect round
+(9) flagged but didn't resolve: since the snapshot box is no longer inside
+`projectionPanel`, it no longer depends on that section's collapsible state
+at all -- it renders as soon as a guaranteed-entry rule is selected,
+regardless of whether "Multi-Year Projection" is expanded or collapsed.
+
+**Verification:**
+- Rendered the real `ui` object (`as.character(ui)`), confirmed by string
+  position that "Guaranteed-Entry Snapshot" (offset 21279) falls after
+  "Distribution of Odds" (offset 19213) and before both the "Show/Hide
+  Multi-Year Projection" button (offset 21561) and the "Multi-Year
+  Projection (Men's pool)" collapsible-title div (offset 21674) -- i.e.
+  strictly in the gap between the odds-results content and the projection
+  content, in document order.
+- Parsed the rendered HTML with `xml2::read_html()` and confirmed
+  structurally (not just by string offset) that the `h4` containing
+  "Guaranteed-Entry Snapshot" is **not** a descendant of
+  `//div[@id="projectionPanel"]` (`xml_find_all(proj_node, ".//*[contains
+  (text(), 'Guaranteed-Entry Snapshot')]")` returns zero matches) -- it is
+  a true sibling, not nested inside the projection panel's subtree. Also
+  confirmed the `conditionalPanel` wrapper survived the move intact:
+  its ancestor div still carries `data-display-if="input.auto_at !=
+  'none'"`.
+- `shiny::testServer()`: set a full explicit input list (formula_family =
+  "current", year_select = "2026", default Nm/Nw, deterministic odds
+  method, etc.) and checked `output$autoSnapshot` both with `auto_at =
+  "none"` (renders "No automatic-entry guarantee is active.") and
+  `auto_at = "3"` (renders "Guaranteed entry at 3+ prior losses, using 2026
+  data: 61 men already qualify (vs. 95 men's slots total), 11 women already
+  qualify (vs. 103 women's slots total)."). Both render without error; only
+  unrelated ggplot cosmetic warnings ("Removed N rows ... geom_point()")
+  from other reactive outputs appeared, same as round (9) saw, not errors.
+- `git diff` confirms the only change is removing the `wellPanel`/
+  `conditionalPanel` block from inside `projectionPanel` and re-inserting
+  the identical block (same conditional, same wellPanel contents) a few
+  lines earlier, as a sibling `br()`-separated element -- no other app.R
+  content touched.
+
+---
+
 ## 2026-10-13 (9) — Dashboard (app.R): moved Guaranteed-Entry Snapshot out of the top of the results
 
 **Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**

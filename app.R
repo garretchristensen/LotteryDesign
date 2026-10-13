@@ -560,25 +560,31 @@ ui <- fluidPage(
         )
       ),
       br(),
+      # Guaranteed-Entry Snapshot (corrected 2026-10-13 -- the prior round put
+      # this wellPanel() INSIDE the collapsible "Multi-Year Projection"
+      # projectionPanel div, which was self-contradictory: the box's own
+      # label says "(this year's data, no projection needed)," so nesting it
+      # inside the projection section's collapsible panel made no sense.
+      # Placed here instead as its own standalone sibling element in the
+      # mainPanel flow: after all of the odds-results content above (Lottery
+      # Odds Summary / Detailed Odds / Distribution of Odds / the two
+      # picks-by histograms) and before the Multi-Year Projection section
+      # begins below -- NOT a descendant of projectionPanel or any
+      # projection-specific wrapper. Still wrapped in conditionalPanel so it
+      # only takes up space once a guaranteed-entry rule is actually
+      # selected -- see ANALYSIS_LOG.md for the full reasoning.
+      conditionalPanel(
+        condition = "input.auto_at != 'none'",
+        wellPanel(
+          h4("Guaranteed-Entry Snapshot (this year's data, no projection needed)"),
+          textOutput("autoSnapshot")
+        )
+      ),
+      br(),
       actionButton("toggleProjection", "Show/Hide Multi-Year Projection", class = "collapsible-btn"),
       tags$div(
         id = "projectionPanel",
         tags$div(class = "collapsible-title", "Multi-Year Projection (Men's pool)"),
-        # Guaranteed-Entry Snapshot (moved here 2026-10-13 -- was the very
-        # first thing in mainPanel, above even "Lottery Odds Summary", so
-        # every visit led with this usually-inactive box before any of the
-        # core odds results. This section is about the same guaranteed-entry
-        # rule (does it become oversubscribed looking forward?), so the
-        # current-year snapshot of that same rule belongs right beside it.
-        # Wrapped in conditionalPanel so it only takes up space once a rule
-        # is actually selected -- see ANALYSIS_LOG.md for the reasoning.
-        conditionalPanel(
-          condition = "input.auto_at != 'none'",
-          wellPanel(
-            h4("Guaranteed-Entry Snapshot (this year's data, no projection needed)"),
-            textOutput("autoSnapshot")
-          )
-        ),
         h5("Does the current guaranteed-entry rule become oversubscribed?"),
         tableOutput("autoTierTable"),
         plotOutput("autoTierPlot"),
