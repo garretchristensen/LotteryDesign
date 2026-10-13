@@ -317,35 +317,6 @@ ui <- fluidPage(
 
   sidebarLayout(
     sidebarPanel(
-      # Garret's UI feedback (2026-10-13, item 2): the formula/ticket-
-      # designer controls and the real-data "Observed Applicant Stats"
-      # block used to just be stacked vertically with an hr() between them
-      # -- not enough visual separation for two things that are
-      # conceptually different ("what ticket formula should we use" vs.
-      # "what does the real historical applicant data look like"). Fixed
-      # by splitting the sidebar into two tabs with shiny::tabsetPanel()
-      # (this app already has `library(bslib)` loaded for theming only --
-      # it never used bslib::navset_tab()/navbarPage anywhere, and
-      # tabsetPanel is the simplest mechanism that (a) needs no new
-      # top-level page structure, since sidebarLayout()/sidebarPanel() stay
-      # exactly as they are, just with their contents now wrapped in a
-      # tabset, and (b) plays correctly with the bs_theme() already applied
-      # to the whole fluidPage()). Everything that drives or explores the
-      # TICKET FORMULA (Lottery Parameters through the Example Applicant
-      # Profile preview, plus the Multi-Year Projection controls, since
-      # that's also a formula-driven exploration tool, not raw data) lives
-      # in the "Ticket Formula Designer" tab; the "Observed Applicant
-      # Stats" reactive text block (year-specific real-data percentages)
-      # gets its own "Observed Applicant Stats" tab. Tab content is just
-      # CSS-hidden when its tab isn't active (shiny's normal tabsetPanel
-      # behavior) -- the underlying inputs/outputs are never
-      # destroyed/recreated, so switching tabs does not reset any slider or
-      # lose any reactive state; every output below renders into whichever
-      # tab it's now nested in exactly as before.
-      tabsetPanel(
-        type = "tabs",
-        tabPanel("Ticket Formula Designer",
-      br(),
       h4("Lottery Parameters"),
       selectInput(
         "formula_family", "Ticket formula:",
@@ -516,6 +487,12 @@ ui <- fluidPage(
       h5("Your tickets in the lottery:"),
       verbatimTextOutput("userTickets"),
       hr(),
+      h5(textOutput("statsTitle", inline = TRUE)),
+      textOutput("avgAppsStats"),
+      textOutput("avgFinishesStats"),
+      textOutput("trailworkStats"),
+      textOutput("volunteerStats"),
+      hr(),
       h4("Multi-Year Projection (Men)"),
       helpText("A fast, simplified ('lite') multi-year projection -- good for exploring tradeoffs ",
                "quickly, but it does not model the dormant-applicant reservoir that ",
@@ -529,16 +506,6 @@ ui <- fluidPage(
                   selected = "25"),
       numericInput("years_to_project", "Years to project:", min = 3, max = 10, value = 8),
       actionButton("runProjection", "Run multi-year projection", class = "collapsible-btn")
-        ),
-        tabPanel("Observed Applicant Stats",
-      br(),
-      h5(textOutput("statsTitle", inline = TRUE)),
-      textOutput("avgAppsStats"),
-      textOutput("avgFinishesStats"),
-      textOutput("trailworkStats"),
-      textOutput("volunteerStats")
-        )
-      )
     ),
     mainPanel(
       wellPanel(

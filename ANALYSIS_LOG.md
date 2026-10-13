@@ -4,6 +4,54 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 (8) — Dashboard (app.R): un-tabbed the sidebar (partial revert of `51e29e8`)
+
+**Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
+
+Garret asked for one specific piece of `51e29e8` (round (6) below) undone:
+the `tabsetPanel("Ticket Formula Designer" / "Observed Applicant Stats")`
+that split the sidebar into two tabs. He wants "Observed Applicant Stats"
+back to a plain stacked block below the formula-designer controls, as it
+was before that commit -- just not as tabs. The other two things
+`51e29e8` did (the `ticketFormula` string-leak fix, and adding the
+adjustable Max Boost slider) are unaffected and explicitly kept, including
+`cc14a13`'s later move of that slider down next to `k_ramp`/`k_floor`.
+
+**Fix:** removed the `tabsetPanel(type = "tabs", ...)` wrapper and its two
+`tabPanel(...)` calls, along with the comment block explaining the tab
+split (now stale) and the `br()` that was added right after the first
+`tabPanel(` open. The "Observed Applicant Stats" block (`statsTitle`,
+`avgAppsStats`, `avgFinishesStats`, `trailworkStats`, `volunteerStats`)
+moved back to its original position -- directly after the `hr()` following
+`verbatimTextOutput("userTickets")` and before `h4("Multi-Year Projection
+(Men)")`, with an `hr()` on both sides, matching the pre-`51e29e8` layout
+exactly (confirmed against `git show 51e29e8^:app.R`). Nothing else in the
+sidebar, and nothing server-side, changed.
+
+**Verification:**
+- Rendered the real `ui` object (`as.character(ui)`): no `tabbable`,
+  `tab-pane`, or `nav-tabs` CSS classes anywhere in the HTML (the tabset is
+  gone); every control/output id that was there before (`formula_family`
+  through `runProjection`, including `max_boost`, `k_ramp`, `k_floor`,
+  `statsTitle`, and the four stats `textOutput`s) is still present; and the
+  DOM order confirms `userTickets` precedes `statsTitle` precedes
+  "Multi-Year Projection" text, i.e. stats sit between the example-applicant
+  preview and the projection controls, as before.
+- Re-checked `k_ramp` < `k_floor` < `max_boost` adjacency (593 characters
+  apart) in the rendered HTML -- `cc14a13`'s slider relocation is untouched
+  by this revert.
+- `shiny::testServer()` across all 4 formula families (`current`,
+  `pure_power`, `caleb`, `garret_decoupled`) with a full set of explicit
+  inputs: `base_data()` and `assigned_data()` both return 1256 rows for
+  every family, `output$userTickets` renders non-empty text, and
+  `output$ticketFormula` has no leaked `[` bracket for any family except
+  `pure_power`'s legitimate, unchanged `[service points have no effect in
+  this family]` caveat -- confirming the string-leak fix from `51e29e8`
+  is still intact and this revert touched none of that logic.
+- `git diff` against the pre-revert tree shows exactly the tabsetPanel/
+  tabPanel removal and the stats block moving back in place -- no other
+  lines changed.
+
 ## 2026-10-13 (7) — Dashboard (app.R): moved Max Boost slider next to Ramp/Floor
 
 **Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
