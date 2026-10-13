@@ -405,8 +405,6 @@ ui <- fluidPage(
           "Volunteer and trailwork points get their own scale/cap controls ",
           "here, independent of k:"
         ),
-        sliderInput("max_boost", "Max finish-bonus boost (multiplier):",
-                    min = 1.1, max = 5, value = 2.0, step = 0.1),
         sliderInput("v_scale", "Volunteer scale (points per +1 in the exponent; left UNCAPPED on purpose -- 'sky high'):",
                     min = 1, max = 20, value = 4, step = 1),
         sliderInput("t_scale", "Trailwork scale (points per +1 in the exponent, before the cap below):",
@@ -459,6 +457,17 @@ ui <- fluidPage(
                   min = 1, max = 6, value = 3, step = 1),
       sliderInput("k_floor", "Floor (k value once past the ramp):",
                   min = 0, max = 1.5, value = 0.5, step = 0.25),
+      # 2026-10-13 (layout fix): moved here, next to k_ramp/k_floor, per
+      # Garret's request -- all three sliders drive the same k(finishes)
+      # ramp/floor/cap mechanic and belong grouped together rather than
+      # split between this section and the garret_decoupled-only panel
+      # above. Still wrapped in its own conditionalPanel (garret_decoupled
+      # only) -- same visibility behavior as before, just relocated.
+      conditionalPanel(
+        condition = "input.formula_family == 'garret_decoupled'",
+        sliderInput("max_boost", "Max finish-bonus boost (multiplier):",
+                    min = 1.1, max = 5, value = 2.0, step = 0.1)
+      ),
       plotOutput("kRampPlot", height = "220px"),
       hr(),
       h4("Discrete Rules"),

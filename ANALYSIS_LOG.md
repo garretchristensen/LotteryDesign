@@ -4,6 +4,50 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 (7) — Dashboard (app.R): moved Max Boost slider next to Ramp/Floor
+
+**Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
+
+Pure layout fix, no logic change. Garret reported that the "Max
+finish-bonus boost (multiplier)" slider (`max_boost`, added in round (6)
+below) was sitting away from the other two sliders that drive the same
+k(finishes) mechanic -- `k_ramp` ("Ramp length") and `k_floor` ("Floor"),
+from the "Finish-Bonus Ramp (k)" section (`a4e6692`). `max_boost` lived up
+in the `garret_decoupled`-only `conditionalPanel` right after the formula
+family selector (alongside `v_scale`/`t_scale`/`t_cap`), several hundred
+lines of UI away from `k_ramp`/`k_floor` further down the sidebar.
+
+**Fix:** removed the `max_boost` `sliderInput` from that upper
+`conditionalPanel` (which still has `v_scale`/`t_scale`/`t_cap`, unchanged)
+and added it immediately after `k_floor`'s `sliderInput`, in its own small
+`conditionalPanel` (same `condition = "input.formula_family ==
+'garret_decoupled'"` as before, so it's still only shown for that family)
+-- right before `plotOutput("kRampPlot", ...)`. Order top-to-bottom is now
+Ramp, Floor, Max Boost, as requested. No change to any server-side logic,
+`garret_k_cap()`, `derive_k_from_finishes()`, or help text content -- only
+where the slider's markup sits in the sidebar.
+
+**Verification:**
+- Rendered the real `ui` object and checked `id="k_ramp"`/`id="k_floor"`/
+  `id="max_boost"` positions in the HTML string: order is `k_ramp` <
+  `k_floor` < `max_boost`, with only ~600 characters (the wrapping
+  `conditionalPanel` div) between `k_floor` and `max_boost`, versus ~5,100
+  characters previously separating `max_boost` from its old neighbor
+  `v_scale`.
+- Launched the real app with `shiny::runApp()` on a local port and curled
+  the served page: same adjacency check against actual served HTML (not
+  just pre-render) -- confirmed. Killed the process afterward; nothing left
+  running.
+- `shiny::testServer()` regression check across all 4 formula families
+  (`current`, `pure_power`, `caleb`, `garret_decoupled`) with a full set of
+  explicit inputs (year, odds method, exponent, k_ramp/k_floor,
+  v_scale/t_scale/t_cap, max_boost, auto-entry toggles, odds toggles): every
+  family's `output$ticketFormula`, `output$userTickets`, `base_data()`
+  (1256 rows), and `assigned_data()` (1256 rows) still render/compute with
+  no errors. Also checked `garret_decoupled` at `max_boost = 2.0` vs. `4.0`
+  with `finishes = 2` -- both compute without error (k scales as expected
+  with the cap, same as round (6)'s math, which is unchanged by this move).
+
 ## 2026-10-13 (6) — Dashboard (app.R): fixed formula-display leak, split sidebar into tabs, added adjustable Max Boost slider
 
 **Status: local changes only, in a git worktree (`worktree-agent-a58abef50e243d5a8`), NOT committed to main/pushed/deployed.**
