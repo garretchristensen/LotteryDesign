@@ -4,6 +4,128 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-10-13 — Dashboard (app.R): generalized the finish bonus (k) into a ramp/floor knob
+
+**Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**
+Garret should review the diff and deploy himself.
+
+### What this is
+
+Caleb's "lotto 2.0" proposal raised the Hardrock 100 concern: at Hardrock,
+10+-time finishers get near-guaranteed entry and newcomers have almost no
+chance, which Garret considers ethically undesirable here. The current
+formula already guards against that via the `k` (weighted finishes) term,
+and Garret confirmed its piecewise shape -- k = 0/.5/1/1.5 for 0/1/2/3
+finishes, then DROPS BACK DOWN to 0.5 for 4+ finishes -- is deliberate, not
+a bug: it caps the maximum lifetime benefit a mega-veteran can ever get, so
+a 10-time finisher earns no more ticket benefit than a 1-time finisher.
+
+That piecewise rule collapses to one formula:
+
+```
+k(finishes) = 0.5 * min(finishes, RAMP),  if finishes <= RAMP
+k(finishes) = FLOOR,                       if finishes >  RAMP
+```
+
+with today's production values RAMP = 3, FLOOR = 0.5. Added two sidebar
+sliders (`k_ramp` 1-6, `k_floor` 0-1.5 step 0.25) so Garret/Caleb can
+experiment with this shape directly, a small always-visible plot
+(`output$kRampPlot`, finishes 0-10) comparing the chosen shape against
+today's production rule side by side, and wired `derive_k_from_finishes()`
+(now taking `ramp`/`floor_val` params, defaulting to today's values) into
+every place that already computed k from a finish count -- `base_data()`
+(the real applicant pools), the sidebar's "Example Applicant Profile"
+(`ticketFormula` / `userTickets`), and therefore the multi-year projection
+engine too, which already reads `k` off of `base_data()`'s output. No
+second formula path was added; everything downstream (tickets, odds
+tables, plots, projections) just sees a different `k` column when the
+sliders move. Defaults reproduce today's exact rule -- verified
+`k_ramp=3, k_floor=0.5` on 2026 data gives back `Weighted_Finishes` exactly
+(`max(abs(sort(k) - sort(Weighted_Finishes))) == 0` via `testServer()`).
+
+### The two-finish-count discrepancy (investigated as part of this)
+
+The task flagged a real puzzle: 2026's official `Weighted_Finishes` field
+has only 4 people (all men) at its max-bonus tier (1.5, i.e. 3 finishes),
+but `lottery_panel.csv`'s `panel_prior_wins` shows far more people with
+"3 lifetime wins" (10 men / 6 women) and "4+ lifetime wins" (3 men / 1
+woman). Both counts checked out exactly against the data. The question was
+which one is the right raw input for the new `k()`.
+
+**Verified `panel_prior_wins` is the wrong field** -- despite the name, it
+does not track race finishes. Cross-tabbing it against the panel's own
+`status` history shows it tracks (almost exactly, modulo a small
+pre-2020 offset) how many times someone was ever **selected** into the
+race (`status %in% c("drawn","preselect")`), not how many times they
+**finished** it:
+
+```
+panel_prior_wins - cumulative_times_selected_before_this_year
+  0: 4657 rows   1: 117 rows   2: 8 rows   (never negative)
+```
+
+whereas cross-tabbing it against actual finishes (`ran == TRUE & result ==
+"finished"`) is much messier and has far more slack. The giveaway: every
+2021 entrant preselected via a "Covid Rollover" `preselect_reason` (i.e.
+their 2020 race was cancelled and they were rolled over -- they never
+ran it) already shows `panel_prior_wins = 1`. ~30% of people who start the
+2020-2026 field don't finish (613 finishes out of 879 starts in the panel),
+so `panel_prior_wins` systematically overstates true finishes and would
+credit DNFs/no-shows as if they were veterans -- exactly backwards for a
+formula whose entire point is capping *finish*-based benefit. Using it
+would make the Hardrock-stacking problem worse, not better.
+
+**Used instead: a reconstructed raw finish count**, built from the panel's
+own `ran`/`result` fields (`ran == TRUE & result == "finished"`, counted
+per `runner_id` for years strictly before 2026) --
+`reconstruct_2026_raw_finishes()` in `app.R`. This disambiguates the one
+place `Weighted_Finishes` is genuinely lossy: its 0.5 bucket is worn by
+*both* 1-time finishers and 4+-time veterans alike (today's floor hides
+exactly the distinction a wider ramp needs). Checked this reconstruction
+against `Weighted_Finishes` directly: every unambiguous bucket
+(`Weighted_Finishes` 0, 1, 1.5 implying 0, 2, 3 raw finishes) has a
+panel-observed finish count <= the implied raw count, with the small gap
+fully explained by pre-2020 finishes the panel window (2020-2026) can't
+see -- a clean, structurally consistent result, unlike `panel_prior_wins`.
+Of the 100 2026 entrants in the ambiguous 0.5 bucket, the panel resolves 4
+of them (3 men / 1 woman -- the same `panel_prior_wins`-based count the
+task description used as a sanity check, reached here by a different and,
+per the analysis above, more defensible route) as true 4+/5-time
+finishers; the rest default to "1 finish" (the modal case). For
+2023-2025 data, which already carries a true raw count under
+`Previous_Finishes`, none of this reconstruction is needed -- it's used
+for the parametrized `k()`'s input unchanged.
+
+Because the reconstruction only matters to break the 0.5 bucket apart, and
+every person in that bucket still lands back on `FLOOR` under the default
+`RAMP = 3` regardless of whether they're reconstructed as exactly 4 or 5,
+the default-reproduction guarantee holds regardless of any remaining
+uncertainty in the reconstruction itself.
+
+**Open item for Caleb/the developer:** worth asking the lottery site's
+admin export to include a raw lifetime finish count directly (or rename
+`panel_prior_wins` / clarify what it tracks) -- reconstructing it from
+`ran`/`result` history works but is more fragile than having the real
+number.
+
+### Testing
+
+`shiny::testServer()`: confirmed `k_ramp=3, k_floor=0.5` (defaults)
+exactly reproduce `Weighted_Finishes` on 2026 data; confirmed moving the
+sliders changes `k`, `tickets`, and downstream odds on years where
+raw finishes exceed the new ramp (2026, 2024, 2023) and correctly has *no*
+effect on 2025 (verified separately: no 2025 applicant has more than 3 raw
+finishes, so widening the ramp past 3 has nothing to bite on that year --
+not a bug); rendered every existing output (`kRampPlot`, `ticketFormula`,
+`userTickets`, both odds table pairs, all four histograms, both odds-dist
+scatter plots, the snapshot/stats text) with both default and extreme
+(`k_ramp=6, k_floor=0`) slider settings -- all rendered without error, and
+the resulting `k` column at the extreme setting (0, 0.5, 1, 1.5, 2, 2.5 for
+raw finishes 0-5) matched the formula by hand. Also did a real
+`shiny::runApp()` launch on a local port and confirmed HTTP 200.
+
+---
+
 ## 2026-10-13 — Dashboard (app.R): fixed "Ticket vs Odds" points piling up at 100%
 
 **Status: local changes only, in a git worktree, NOT committed/pushed/deployed.**

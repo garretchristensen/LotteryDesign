@@ -81,23 +81,107 @@ simulate_odds <- function(tickets, n_picks, n_sim = 100000) {
 }
 
 # derive_k_from_finishes(): converts a RAW finish count into the lottery's
-# own "weighted finishes" (k) scale: 0 finishes = 0, 1 = .5, 2 = 1, 3 = 1.5,
-# 4+ drops back to .5 (per CLAUDE.md's documented mapping). Needed for the
-# 2023-2025 data files, which carry a raw Previous_Finishes count. The 2026
-# export does NOT carry a raw count at all -- it supplies k directly under
-# a column literally named Weighted_Finishes -- so for 2026 we use that
-# column as-is instead of calling this function. (Mixing those two up, by
-# always expecting a raw Previous_Finishes column, is what used to make
-# selecting "2026" in the Data Year dropdown crash the app outright.)
-derive_k_from_finishes <- function(previous_finishes) {
-  dplyr::case_when(
-    previous_finishes == 0 ~ 0,
-    previous_finishes == 1 ~ 0.5,
-    previous_finishes == 2 ~ 1,
-    previous_finishes == 3 ~ 1.5,
-    previous_finishes >= 4 ~ 0.5,
-    TRUE ~ 0
+# "weighted finishes" (k) ticket bonus, GENERALIZING the piecewise rule
+# Garret confirmed is deliberate (not a bug): k ramps up by 0.5 per finish
+# for a while, then DROPS BACK DOWN to a floor once you pass that ramp --
+# so a 10-time finisher (think Hardrock 100's near-guaranteed veterans)
+# never earns more lifetime benefit than someone who has finished exactly
+# `ramp` times. Today's production rule is ramp = 3, floor = 0.5 (0/1/2/3
+# finishes -> k = 0/.5/1/1.5, then 4+ finishes drops back to k = 0.5):
+#
+#   k(finishes) = 0.5 * min(finishes, ramp),  if finishes <= ramp
+#   k(finishes) = floor,                       if finishes >  ramp
+#
+# The `ramp`/`floor` defaults below reproduce today's exact rule, so any
+# caller that doesn't pass them explicitly (or the sidebar's k_ramp/k_floor
+# sliders, when left at their defaults) behaves exactly as before. See the
+# sidebar's "Finish-Bonus Ramp (k)" section and output$kRampPlot for the
+# interactive version of this.
+#
+# Needed for the 2023-2025 data files, which carry a raw Previous_Finishes
+# count directly. The 2026 export does NOT carry a raw count at all -- it
+# supplies an already-k-mapped value under a column literally named
+# Weighted_Finishes, lossy above 3 finishes (it can't tell a 1-time
+# finisher from a 10-time finisher apart, both show 0.5 under today's
+# rule) -- see reconstruct_2026_raw_finishes() below for how base_data()
+# recovers an approximate raw count for 2026 so this slider still does
+# something on that year's data. (Mixing up which column is raw vs.
+# already-mapped, by always expecting a raw Previous_Finishes column, is
+# what used to make selecting "2026" in the Data Year dropdown crash the
+# app outright.)
+derive_k_from_finishes <- function(previous_finishes, ramp = 3, floor_val = 0.5) {
+  ramp <- as.numeric(ramp)
+  floor_val <- as.numeric(floor_val)
+  ifelse(previous_finishes <= ramp,
+         0.5 * pmin(previous_finishes, ramp),
+         floor_val)
+}
+
+# reconstruct_2026_raw_finishes(): recovers an approximate RAW lifetime
+# finish count for 2026 applicants, who only carry the already-k-mapped
+# Weighted_Finishes column (see derive_k_from_finishes() above and
+# ANALYSIS_LOG.md's 2026-10-13 entry for the full writeup of this
+# investigation).
+#
+# Under TODAY'S rule, Weighted_Finishes == 0, 1, and 1.5 are unambiguous --
+# they can only come from exactly 0, 2, or 3 raw finishes respectively. But
+# Weighted_Finishes == 0.5 is ambiguous: it's the floor value, so it's worn
+# by BOTH genuine 1-time finishers AND every 4+-time veteran alike -- today's
+# rule hides the very distinction a wider ramp needs to see. To unmask the
+# real veterans in that bucket, this joins to lottery_panel.csv (by
+# runner_id) and counts each person's lifetime race finishes actually
+# observed within the panel (ran == TRUE & result == "finished", strictly
+# before 2026).
+#
+# IMPORTANT, and the reason this is a *reconstruction* and not a second
+# source of truth: we checked this against the OTHER candidate panel
+# column, panel_prior_wins, and rejected it. panel_prior_wins tracks (to
+# within pre-panel-history noise) how many times someone was ever SELECTED
+# into the race (status drawn/preselect) -- not how many times they
+# actually FINISHED it. Those are materially different: ~30% of people who
+# start the race don't finish, and some selected people never start at
+# all, so panel_prior_wins systematically overstates true finishes and
+# would credit non-finishers as if they were veterans -- exactly backwards
+# for a formula whose whole point is capping veteran benefit based on
+# actually finishing. The panel's own `ran`/`result` fields (true finishes,
+# computed here) line up with Weighted_Finishes almost perfectly (verified
+# against 2026HLdata.csv: every unambiguous Weighted_Finishes bucket's
+# panel-observed finish count is <= the bucket's implied raw count, with
+# the small gap fully explained by pre-2020 finishes the panel can't see),
+# while panel_prior_wins does not. So: raw finishes, not panel_prior_wins,
+# is what feeds the k() ramp here.
+#
+# Because this only matters to disambiguate the 0.5 bucket, and anyone
+# reconstructed as 4+ there still lands on the floor under today's
+# defaults (ramp = 3) exactly like Weighted_Finishes == 0.5 always did,
+# this reconstruction is exact-reproducing regardless of any uncertainty
+# left in distinguishing e.g. a 4-time from a 5-time finisher.
+reconstruct_2026_raw_finishes <- function(weighted_finishes, runner_id,
+                                           panel_path = "lottery_panel.csv") {
+  # Whatever Weighted_Finishes unambiguously implies under today's rule;
+  # the 0.5 bucket defaults to "1" (the modal case -- see ANALYSIS_LOG.md)
+  # unless the panel join below finds evidence of a real 4+-time veteran.
+  implied <- dplyr::case_when(
+    weighted_finishes == 0   ~ 0,
+    weighted_finishes == 1   ~ 2,
+    weighted_finishes == 1.5 ~ 3,
+    weighted_finishes == 0.5 ~ 1,
+    TRUE ~ NA_real_
   )
+
+  panel <- tryCatch(read.csv(panel_path, stringsAsFactors = FALSE), error = function(e) NULL)
+  if (is.null(panel) || !all(c("year", "runner_id", "ran", "result") %in% names(panel))) {
+    return(implied)  # degrade gracefully if the panel file is missing/malformed
+  }
+
+  true_finishes <- panel %>%
+    dplyr::filter(year < 2026, ran == TRUE, result == "finished") %>%
+    dplyr::count(runner_id, name = "n_finishes")
+  lookup <- setNames(true_finishes$n_finishes, true_finishes$runner_id)
+  panel_true <- unname(lookup[runner_id])
+  panel_true[is.na(panel_true)] <- 0
+
+  ifelse(weighted_finishes == 0.5 & panel_true >= 4, panel_true, implied)
 }
 
 # apply_service_toggles(): the sidebar's "Drop trailwork (keep
@@ -189,6 +273,23 @@ ui <- fluidPage(
       ),
       numericInput("Nm", "Number of Men to Pick:", min = 0, max = 200, value = default_nm),
       numericInput("Nw", "Number of Women to Pick:", min = 0, max = 200, value = default_nw),
+      h4("Finish-Bonus Ramp (k)"),
+      helpText(
+        "The current formula's finish bonus (k) ramps up with each lifetime ",
+        "race finish, then deliberately DROPS BACK DOWN to a floor -- so a ",
+        "mega-veteran (think Hardrock 100's 10+-time finishers, who get ",
+        "near-guaranteed entry) never earns more benefit than someone who's ",
+        "finished exactly 'Ramp length' times. These two sliders let you ",
+        "replay that same shape with different knobs. Defaults (ramp = 3, ",
+        "floor = 0.5) exactly reproduce today's production rule -- nothing ",
+        "changes until you move them."
+      ),
+      sliderInput("k_ramp", "Ramp length (finishes until the bonus maxes out):",
+                  min = 1, max = 6, value = 3, step = 1),
+      sliderInput("k_floor", "Floor (k value once past the ramp):",
+                  min = 0, max = 1.5, value = 0.5, step = 0.25),
+      plotOutput("kRampPlot", height = "220px"),
+      hr(),
       h4("Discrete Rules"),
       # Generalizes what used to be a hardcoded "3+ year applicant" rule
       # into a pickable threshold, so Caleb can compare guaranteeing entry
@@ -371,7 +472,7 @@ server <- function(input, output, session) {
     family <- input$formula_family
     toggles <- input$odds_toggles
     apps <- input$apps
-    k_val <- derive_k_from_finishes(input$finishes)
+    k_val <- derive_k_from_finishes(input$finishes, input$k_ramp, input$k_floor)
     v_sim <- input$volunteer
     t_sim <- if ("drop_trail" %in% toggles) 0 else input$trailwork
 
@@ -386,6 +487,39 @@ server <- function(input, output, session) {
       "caleb" = paste0(exp_val, "^", apps, " + ", apps, " * (", k_val, " + ", (v_sim + t_sim), ")")
     )
     HTML(paste0("<div class='formula-box'><span class='formula-highlight'>Tickets = ", formula_text, "</span></div>"))
+  })
+
+  # kRampPlot: small, always-visible visualization of the k(finishes)
+  # ramp-then-floor shape, so moving the k_ramp/k_floor sliders is visually
+  # obvious without having to dig through the odds tables below. Plots
+  # finishes 0-10 (per task spec) against k under the CURRENT slider
+  # settings, alongside today's fixed production rule (ramp=3, floor=0.5)
+  # as a reference, so it's immediately clear whether/how the shape has
+  # changed -- directly illustrating "no one becomes a Hardrock-style lock"
+  # regardless of where the sliders are set (the line always flattens, it
+  # just flattens to a different floor and after a different ramp).
+  output$kRampPlot <- renderPlot({
+    finishes <- 0:10
+    dd <- data.frame(
+      finishes = rep(finishes, 2),
+      k = c(derive_k_from_finishes(finishes, 3, 0.5),
+            derive_k_from_finishes(finishes, input$k_ramp, input$k_floor)),
+      which = rep(c("Current production rule (ramp 3, floor 0.5)", "Your settings"),
+                  each = length(finishes))
+    )
+    ggplot(dd, aes(x = finishes, y = k, color = which)) +
+      geom_line(linewidth = 1) +
+      geom_point(size = 2) +
+      scale_color_manual(values = c(
+        "Current production rule (ramp 3, floor 0.5)" = "grey60",
+        "Your settings" = "#B7822E"
+      )) +
+      scale_x_continuous(breaks = finishes) +
+      labs(x = "Lifetime race finishes", y = "k (finish bonus)",
+           title = "No one becomes a Hardrock-style lock", color = NULL) +
+      theme_minimal() +
+      theme(legend.position = "bottom", legend.text = element_text(size = 8),
+            plot.title = element_text(size = 11))
   })
 
   # base_data(): loads the selected year's applicant pool and computes each
@@ -420,11 +554,20 @@ server <- function(input, output, session) {
     }
 
     if ("Weighted_Finishes" %in% names(df)) {
-      df$k <- as.numeric(df$Weighted_Finishes)
-      df$Previous_Finishes <- NA_real_   # not available this year -- see k instead
+      # 2026: no raw finish count in the export, only the already-k-mapped
+      # Weighted_Finishes. Reconstruct an approximate raw count (see
+      # reconstruct_2026_raw_finishes()'s header comment for the full
+      # investigation/rationale -- short version: use the panel's own
+      # observed race finishes, NOT panel_prior_wins, to unmask 4+-time
+      # veterans hiding in the 0.5 floor bucket) so the k_ramp/k_floor
+      # sliders below have real raw material to work with on this year's
+      # data too, not just on 2023-2025's native Previous_Finishes column.
+      df$Weighted_Finishes <- as.numeric(df$Weighted_Finishes)
+      df$Previous_Finishes <- reconstruct_2026_raw_finishes(df$Weighted_Finishes, df$runner_id)
+      df$k <- derive_k_from_finishes(df$Previous_Finishes, input$k_ramp, input$k_floor)
     } else {
       df$Previous_Finishes <- as.numeric(df$Previous_Finishes)
-      df$k <- derive_k_from_finishes(df$Previous_Finishes)
+      df$k <- derive_k_from_finishes(df$Previous_Finishes, input$k_ramp, input$k_floor)
     }
 
     df <- df %>% mutate(
@@ -444,7 +587,7 @@ server <- function(input, output, session) {
   # as base_data(), applied to the hypothetical example applicant instead
   # of the real data).
   output$userTickets <- renderText({
-    k_sim <- derive_k_from_finishes(input$finishes)
+    k_sim <- derive_k_from_finishes(input$finishes, input$k_ramp, input$k_floor)
     v_sim <- pmin(input$volunteer, 30)
     t_sim <- pmin(input$trailwork, 10)
     s_sim <- apply_service_toggles(v_sim, t_sim, input$odds_toggles)
@@ -479,11 +622,13 @@ server <- function(input, output, session) {
     }
 
     if (input$no_firsttime_zero) {
-      # Uses k == 0 rather than the raw Previous_Finishes count, since the
-      # raw count isn't available for 2026 data (see base_data()) -- k == 0
-      # means exactly the same thing (zero weighted finishes) either way,
-      # and is always available regardless of which year is loaded. Guarded
-      # to only ever downgrade an ordinary "Lottery" row, so it can never
+      # Uses k == 0 rather than the raw Previous_Finishes count. For 2026,
+      # Previous_Finishes is now populated too (see base_data()'s
+      # reconstruct_2026_raw_finishes() call), but it's only an
+      # approximation reconstructed from the panel, whereas k == 0 means
+      # exactly the same thing (zero weighted finishes) either way and is
+      # always exact regardless of which year is loaded. Guarded to only
+      # ever downgrade an ordinary "Lottery" row, so it can never
       # clobber a pre-select's or auto_at's guaranteed status.
       df$SelectionStatus[df$SelectionStatus == "Lottery" &
                             df$Previous_Applications == 0 & df$k == 0] <- "Removed"
