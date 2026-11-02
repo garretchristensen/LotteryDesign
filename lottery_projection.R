@@ -83,41 +83,36 @@ calc_group_odds <- function(N, tickets, n_picks) {
 # single sidebar control drives both consistently instead of risking two
 # formula implementations drifting apart.
 #
-#   "current"          the system's actual 2026 formula:
-#                       exp^(n+k+1) + mult*log(s+1)
-#   "pure_power"        a plain power formula with NO service credit at all,
-#                       e.g. 3^(n+k) or 4^(n+k) from the log's
-#                       static-counterfactuals table -- used to show that
-#                       service/trailwork would need to move INTO the
-#                       exponent to matter once the base gets steep
-#   "caleb"             Caleb's literal proposal, base^n + n*(k+s) -- kept
-#                       here so the dashboard can reproduce the finding that
-#                       it is numerically almost a no-op vs. plain pure_power
-#   "garret_decoupled"  Garret's own proposal from the 2026-10-13 "Decoupled
-#                       formula design" log entry: exp_val^n * 2^(k+s).
-#                       `exp_val` (the SAME base slider the other families
-#                       reuse -- "b" in the log's writeup) controls only how
-#                       steeply waiting time (n) matters. The `2^(...)`
-#                       multiplier is a SEPARATE, deliberately-fixed-at-base-2
-#                       factor, decoupled from exp_val/b, whose only job is
-#                       to bound the max "being a veteran" bonus at exactly
-#                       2x (2^1) -- independent of whatever base is chosen
-#                       for the n-term. By the time `s` reaches this
-#                       function it is NOT raw volunteer+trailwork points --
-#                       app.R's apply_service_toggles() has already turned
-#                       it into the family-appropriate exponent contribution
-#                       (v/v_scale, uncapped, plus min(t/t_scale, t_cap),
-#                       capped), per that same log entry's v/t design. See
-#                       ANALYSIS_LOG.md's 2026-10-13 entries for the full
-#                       derivation of why 2^(k+v+t) == 2^k * 2^(v+t) means
-#                       capping k alone is NOT broken by leaving v uncapped
-#                       in the same written exponent.
+#   "current"     the system's actual 2026 formula:
+#                 exp^(n+k+1) + mult*log(s+1)
+#   "pure_power"  a plain power formula with NO service credit at all,
+#                 e.g. 3^(n+k) or 4^(n+k) from the log's
+#                 static-counterfactuals table -- used to show that
+#                 service/trailwork would need to move INTO the exponent to
+#                 matter once the base gets steep. NOT exposed in the
+#                 sidebar's formula-family selector (removed 2026-11-02 per
+#                 Garret's request to simplify the dashboard to two
+#                 selectable families) -- kept here only because
+#                 app.R's convergence_projection() still calls it directly
+#                 by name for its fixed, already-documented base-3/base-4
+#                 historical comparison chart.
+#   "boost"       Garret's "boosts" proposal (2026-11-02): exp_val^n * (1 +
+#                 k + s). `exp_val` ("b") controls only how steeply waiting
+#                 time (n) matters. k/v/t are no longer exponents at all --
+#                 each is a separate, independently-capped linear boost
+#                 (app.R's apply_service_toggles() turns raw volunteer/
+#                 trailwork points into `s`, the capped v+t sum, before this
+#                 function ever sees them), so k=1.5 reads directly as "+150%
+#                 tickets from finishes alone," same unit for v and t. This
+#                 replaces the old "garret_decoupled" family, which used
+#                 2^(k+s) (k/v/t as exponents, v deliberately left uncapped)
+#                 -- superseded because an exponential, partly-uncapped boost
+#                 isn't as directly interpretable as a bounded percentage.
 build_ticket_formula <- function(family, exp_val = 2, mult_val = 2) {
   switch(family,
-    current          = function(n, k, s) exp_val ^ (n + k + 1) + mult_val * log(s + 1),
-    pure_power       = function(n, k, s) exp_val ^ (n + k),
-    caleb            = function(n, k, s) exp_val ^ n + n * (k + s),
-    garret_decoupled = function(n, k, s) exp_val ^ n * 2 ^ (k + s),
+    current    = function(n, k, s) exp_val ^ (n + k + 1) + mult_val * log(s + 1),
+    pure_power = function(n, k, s) exp_val ^ (n + k),
+    boost      = function(n, k, s) exp_val ^ n * (1 + k + s),
     stop("build_ticket_formula(): unknown family '", family, "'")
   )
 }

@@ -15,6 +15,8 @@ for the full narrative, findings, and open items. **Append a dated entry to
 - `20XXHLdata.csv` — applicant pools by year (2022–2026 tracked). Column names drift across years; 2026 is the cleanest.
 - `2026HLdata.csv` — built from the admin export `applications-2026-high-lonesome-100-5.csv` joined by `runner_id` to the public entrants API (see log). Includes draw outcomes.
 - `prediction.ipynb` — Python notebook forecasting applicant growth (random forest etc.). `synthetic_202X_predictions.csv`, `longitudinal_data.csv` come from it.
+- `generate_synthetic_years.R` — produces `synthetic_202XHLdata.csv` (2027-2030; NOT the same files as `prediction.ipynb`'s `synthetic_202X_predictions.csv` above) by advancing the real 2026 pool forward under today's production formula (bootstrapped rookies, panel-based retention/dormancy, 25%/yr growth, one seeded run). These back the Data Year dropdown's "(simulated)" options in `app.R`. Re-run (`Rscript generate_synthetic_years.R`, seconds) to refresh them.
+- `auto_waitlist_sim.R` — tests the "auto-waitlist" proposal (ANALYSIS_LOG.md 2026-11-02) using `cohort_sim.R`'s `simulate_lottery(waitlist_tiers = ...)`. Writes `sim_results/auto_waitlist_backlog.{csv,png}`.
 - `old/` — superseded Rmd version of the app.
 
 ## Domain facts

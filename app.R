@@ -101,12 +101,8 @@ simulate_odds <- function(tickets, n_picks, n_sim = 100000) {
 # 2026-10-13 (Max Boost slider): added the `k_cap` parameter so the cap
 # itself can be made adjustable (via a "Max finish-bonus boost
 # (multiplier)" slider) instead of the hardcoded cap derived from
-# ramp/0.5. Originally only "garret_decoupled" used this (k_cap =
-# log2(max_boost)); per Garret's 2026-10-13 feedback ("K is in pretty much
-# all equations, so the slider should appear and work regardless"),
-# garret_k_cap() below now computes a cap for every family EXCEPT "caleb"
-# (whose k term is additive, not exponential -- see that function's header
-# comment). See ANALYSIS_LOG.md's 2026-10-13 entries for the derivation.
+# ramp/0.5. garret_k_cap() below computes this cap for both remaining
+# formula families (see its header comment for how the two differ). See ANALYSIS_LOG.md's 2026-10-13 entries for the derivation.
 #
 # The `ramp`/`floor` defaults below reproduce today's exact rule, so any
 # caller that doesn't pass them explicitly (or the sidebar's k_ramp/k_floor
@@ -136,63 +132,34 @@ derive_k_from_finishes <- function(previous_finishes, ramp = 3, floor_val = 0.5,
          floor_val)
 }
 
-# garret_k_cap(): the one place that turns the "Max Boost" slider's
-# intuitive unit (a multiplier, e.g. 2x/4x) into the exponent unit
-# derive_k_from_finishes() actually needs (k_cap, such that b^k_cap ==
-# max_boost, for whichever base b this formula family actually raises k
-# by). Centralizing this here means every derive_k_from_finishes() call
-# site (ticketFormula, kRampPlot, base_data(), userTickets) computes the
-# cap identically -- a second, slightly-different copy of this logic at
-# each call site is exactly the kind of drift this app's existing "one
-# shared function per concept" convention is meant to avoid.
+# garret_k_cap(): the one place that turns whatever cap control is on
+# screen into the unit derive_k_from_finishes() actually needs for the
+# selected formula family. Centralizing this here means every
+# derive_k_from_finishes() call site (ticketFormula, kRampPlot,
+# base_data(), userTickets) computes the cap identically -- a second,
+# slightly-different copy of this logic at each call site is exactly the
+# kind of drift this app's existing "one shared function per concept"
+# convention is meant to avoid.
 #
-# 2026-10-13 (generalized beyond garret_decoupled, per Garret's feedback
-# "K is in pretty much all equations, so the [Max Boost] slider should
-# appear and work regardless"): which base `b` is correct depends on how
-# each family's build_ticket_formula() arm (lottery_projection.R) actually
-# uses k:
-#   - "current"          exp_val ^ (n + k + 1) + ...   -- k shares the SAME
-#                         base as n, i.e. the live "Exponent / Base" slider
-#                         (`exp_val`, production default 2). A +1 bump in k
-#                         multiplies tickets by exp_val, same as a +1 bump
-#                         in n would.
-#   - "pure_power"        exp_val ^ (n + k)              -- identical
-#                         relationship; same base as "current". NOTE: this
-#                         app has no separate selectable "base 3" / "base
-#                         4" family -- "pure_power" is ONE family with an
-#                         adjustable base (the shared `exp` slider,
-#                         defaulting to 2, same as "current"); 3^(n+k) and
-#                         4^(n+k) (as hinted in the selectInput's own
-#                         label) are just two configurations of it, reached
-#                         by moving that slider, not two different k_cap
-#                         defaults.
-#   - "garret_decoupled"  exp_val ^ n * 2 ^ (k + s)       -- by design (see
-#                         lottery_projection.R's header comment), k's base
-#                         is a SEPARATE, fixed base-2 factor, decoupled
-#                         from exp_val/b on purpose. This is unaffected by
-#                         whatever the shared Exponent/Base slider is set
-#                         to -- base is always literally 2 here.
-#   - "caleb"              exp_val ^ n + n * (k + s)       -- k is ADDITIVE
-#                         (inside a term multiplied by n), not an exponent
-#                         at all, so there is no base b for which "a Max
-#                         Boost multiplier" has a coherent meaning. Per
-#                         Garret's task instructions ("if capping k via
-#                         log_b(max_boost) doesn't make sense, keep caleb's
-#                         k_cap computation exactly as 0.5*ramp today"):
-#                         this returns NULL for "caleb", which
-#                         derive_k_from_finishes() already treats as "use
-#                         today's implicit 0.5*ramp cap" -- i.e. the Max
-#                         Boost slider is visible (per the task's explicit
-#                         instruction that it show for every family) but
-#                         has NO EFFECT on caleb's tickets, documented in
-#                         the UI via a conditionalPanel helpText next to
-#                         the slider. Caleb is already "nearly a no-op vs.
-#                         base4" per lottery_projection.R's header comment,
-#                         so this is a deliberately low-priority corner.
-garret_k_cap <- function(family, max_boost, exp_val = 2) {
-  if (identical(family, "caleb")) return(NULL)
-  base_for_cap <- if (identical(family, "garret_decoupled")) 2 else as.numeric(exp_val)
-  log(as.numeric(max_boost), base = base_for_cap)
+# The two remaining families use entirely different controls for this,
+# because k enters them differently:
+#   - "current"  exp_val ^ (n + k + 1) + ...  -- k is an EXPONENT, sharing
+#                the same base as n (the "Exponent / Base" slider, `exp_val`,
+#                production default 2). The "Max finish-bonus boost
+#                (multiplier)" slider sets this in the intuitive "Nx" unit
+#                (e.g. 2.83x means "finishes alone can at most multiply
+#                your tickets by 2.83"); the cap in k's own (exponent)
+#                units is log_{exp_val}(max_boost).
+#   - "boost"    exp_val ^ n * (1 + k + s)    -- k is LINEAR (added to 1,
+#                alongside v and t), not an exponent, and -- per Garret's
+#                2026-11-02 feedback -- deliberately NOT run through any
+#                multiplier/log abstraction: k_cap_boost is a slider in k's
+#                own native units (0-2, default 1.5 -- today's exact
+#                production ceiling, "we don't want to do much more than
+#                double"), passed straight through with no conversion.
+garret_k_cap <- function(family, max_boost, exp_val = 2, k_cap_boost = 1.5) {
+  if (identical(family, "boost")) return(as.numeric(k_cap_boost))
+  log(as.numeric(max_boost), base = as.numeric(exp_val))
 }
 
 # reconstruct_2026_raw_finishes(): recovers an approximate RAW lifetime
@@ -267,39 +234,35 @@ reconstruct_2026_raw_finishes <- function(weighted_finishes, runner_id,
 # point totals feed INTO the formula, so it's applied here, once, rather
 # than separately in every place that needs a service total.
 #
-# GENERALIZED (2026-10-13, same session as the k ramp/floor knob) to also
-# produce the "garret_decoupled" family's exponent contribution, per
-# ANALYSIS_LOG.md's "Decoupled formula design" entry. Every OTHER family
-# (current / pure_power / caleb) still gets back exactly `volunteer +
-# trailwork` as before -- this function's return value is always just "the
-# `s` argument whatever formula_fn(n, k, s) expects", and for those three
-# families that's the simple raw-point sum, unchanged.
+# For "current", this returns exactly `volunteer + trailwork` (the raw
+# point sum, unchanged) -- this function's return value is always just "the
+# `s` argument whatever formula_fn(n, k, s) expects".
 #
-# For "garret_decoupled" specifically, the raw points are rescaled BEFORE
-# summing, per Garret's explicit design split:
-#   - volunteering: v / v_scale, deliberately left UNCAPPED ("sky high" is
-#     the design goal -- a big volunteer total should keep paying off, not
-#     flatten out).
-#   - trailwork: min(t / t_scale, t_cap), deliberately CAPPED -- Garret's
-#     own reasoning is that trailwork is "harder to verify and perhaps of
-#     more variable quality in practice" than volunteering, so its
-#     contribution is bounded no matter how large the raw point total gets.
-# Doing the rescale here (rather than inside build_ticket_formula()) means
-# build_ticket_formula()'s garret_decoupled case can stay a plain
-# `exp_val^n * 2^(k+s)`, identical in shape to how every other family
-# already consumes `s` -- no second/parallel calculation path, just a
-# family-aware version of the one function that already turns raw
-# volunteer/trailwork points into "the thing the formula adds".
+# For "boost" (2026-11-02 "boosts" redesign -- see lottery_projection.R's
+# header comment), the raw points are rescaled AND CAPPED before summing,
+# so v and t each land in the same bounded "0 to a few" units as k:
+#   - volunteering: min(v / v_scale, v_cap)
+#   - trailwork:    min(t / t_scale, t_cap)
+# Volunteering used to be left deliberately uncapped ("sky high") under the
+# old "garret_decoupled" family this replaces; the new boosts design caps
+# both v and t for the same reason it caps k -- so every term reads as a
+# bounded percentage, not an open-ended exponent. Doing the rescale here
+# (rather than inside build_ticket_formula()) means build_ticket_formula()'s
+# "boost" case can stay a plain `exp_val^n * (1+k+s)`, identical in shape to
+# how every other family already consumes `s` -- no second/parallel
+# calculation path, just a family-aware version of the one function that
+# already turns raw volunteer/trailwork points into "the thing the formula
+# adds".
 #
-# v_scale/t_scale/t_cap are only ever read when family == "garret_decoupled"
+# v_scale/v_cap/t_scale/t_cap are only ever read when family == "boost"
 # (the sidebar only shows those sliders then too), so their defaults here
-# are irrelevant to every other family -- kept only so this function has a
-# sane signature if ever called without them.
+# are irrelevant to "current" -- kept only so this function has a sane
+# signature if ever called without them.
 apply_service_toggles <- function(volunteer, trailwork, toggles, family = "current",
-                                   v_scale = 4, t_scale = 8, t_cap = 0.5) {
+                                   v_scale = 4, t_scale = 8, t_cap = 0.5, v_cap = 2) {
   if ("drop_trail" %in% toggles) trailwork <- 0
-  if (identical(family, "garret_decoupled")) {
-    volunteer / v_scale + pmin(trailwork / t_scale, t_cap)
+  if (identical(family, "boost")) {
+    pmin(volunteer / v_scale, v_cap) + pmin(trailwork / t_scale, t_cap)
   } else {
     volunteer + trailwork
   }
@@ -307,13 +270,12 @@ apply_service_toggles <- function(volunteer, trailwork, toggles, family = "curre
 
 # build_app_formula(): wraps lottery_projection.R's build_ticket_formula()
 # to also honour the "Drop log and +1 (use integer points)" checkbox, which
-# only makes sense for the "current" family (the other two families --
-# pure power, and Caleb's proposal -- don't use a log term at all, so the
-# toggle has no effect there; that's intentional, not a bug, and is called
-# out in the UI help text). Keeping this wrapper in app.R (rather than
-# lottery_projection.R) keeps the three canonical formulas in that file
-# exactly matching the ones documented in ANALYSIS_LOG.md, uncomplicated by
-# this app-only interactive toggle.
+# only makes sense for the "current" family ("boost" doesn't use a log term
+# at all, so the toggle has no effect there; that's intentional, not a bug,
+# and is called out in the UI help text). Keeping this wrapper in app.R
+# (rather than lottery_projection.R) keeps the canonical formulas in that
+# file exactly matching the ones documented in ANALYSIS_LOG.md,
+# uncomplicated by this app-only interactive toggle.
 build_app_formula <- function(family, exp_val, mult_val, toggles) {
   if (identical(family, "current") && "no_log" %in% toggles) {
     function(n, k, s) exp_val ^ (n + k + 1) + mult_val * s
@@ -367,67 +329,74 @@ ui <- fluidPage(
       selectInput(
         "formula_family", "Ticket formula:",
         choices = c(
-          "Current system (power + log service credit)" = "current",
-          "Pure power, no service credit (e.g. 3^(n+k) or 4^(n+k))" = "pure_power",
-          "Caleb's proposal: base^n + n*(finishes + service)" = "caleb",
-          "Garret's decoupled proposal: b^n x 2^(k+v+t)" = "garret_decoupled"
+          "Original (power + log service credit)" = "current",
+          "Boosted: b^n x (1 + k + v + t)" = "boost"
         ),
         selected = "current"
       ),
       uiOutput("ticketFormula"),
-      selectInput("year_select", "Data Year:", choices = c("2026", "2025", "2024", "2023"), selected = "2026"),
+      selectInput("year_select", "Data Year:",
+                  choices = c("2026", "2025", "2024", "2023",
+                              "2027 (simulated)" = "2027sim",
+                              "2028 (simulated)" = "2028sim",
+                              "2029 (simulated)" = "2029sim",
+                              "2030 (simulated)" = "2030sim"),
+                  selected = "2026"),
+      conditionalPanel(
+        condition = "input.year_select == '2027sim' || input.year_select == '2028sim' || input.year_select == '2029sim' || input.year_select == '2030sim'",
+        helpText(
+          "SIMULATED, not real: one seeded run of generate_synthetic_years.R, ",
+          "advancing the real 2026 pool forward under TODAY'S production ",
+          "formula and 25%/yr growth (bootstrapped rookies, panel-based ",
+          "retention/dormancy -- see that script's header comment). Treat ",
+          "this as one plausible future snapshot to explore hypothetical ",
+          "formulas against, not a forecast."
+        )
+      ),
       sliderInput("exp", "Exponent / Base:", min = 2, max = 5, value = 2, step = 0.5),
-      # The multiplier only applies to the "current" family's log(service+1)
-      # term -- the other two families don't have a separately-weighted
-      # service term, so there's nothing for this slider to do there.
+      # The multiplier only applies to "Original"'s log(service+1) term --
+      # "Boosted" doesn't have a separately-weighted service term (v and t
+      # get their own scale/cap sliders below instead), so there's nothing
+      # for this slider to do there.
       conditionalPanel(
         condition = "input.formula_family == 'current'",
         sliderInput("mult", "Service-Credit Multiplier:", min = 1, max = 10, value = 2)
       ),
-      # Garret's decoupled proposal (ANALYSIS_LOG.md, 2026-10-13 "Decoupled
-      # formula design" entry): Tickets = b^n * 2^(k + v/v_scale +
-      # min(t/t_scale, t_cap)). `b` reuses the "Exponent / Base" slider
-      # above (same control other families already use for their base --
-      # no separate slider, per the task's "reuse whatever base selector
-      # already exists" instruction); an observer below nudges it to 3 the
-      # moment you select this family, since that's Garret's own proposed
-      # default, but it stays a normal adjustable slider afterward. The
-      # `2^(...)` factor is a SEPARATE base, always fixed at 2 regardless of
-      # what `b` is set to -- its only job is bounding the veteran bonus. k
-      # itself still comes from the "Finish-Bonus Ramp" sliders below (same
-      # ramp/floor knob as every other family) -- this family just wants a
-      # different DEFAULT ramp (2, not 3) so the k-cap lands at 2 finishes
-      # instead of 3 (nudged by the same observer); v and t get their own
-      # independent scale/cap controls here because Garret wants them to
-      # behave very differently: volunteering should go "sky high" (no cap
-      # at all), while trailwork -- "harder to verify and perhaps of more
-      # variable quality in practice" per Garret -- is deliberately capped
-      # low.
-      #
-      # 2026-10-13 (Max Boost slider): the veteran bonus's cap used to be
-      # hardcoded at exactly 2x (k capped at 1, via the k_ramp default of 2
-      # above). Garret asked for that cap itself to be adjustable, in the
-      # multiplier unit he actually thinks in (e.g. "2x", "4x") rather than
-      # the underlying exponent (k_cap). `max_boost` is that slider;
-      # `garret_k_cap()` (top of file) converts it to k_cap = log2(max_boost)
-      # wherever derive_k_from_finishes() is called for this family. Default
-      # 2.0 reproduces the old hardcoded behavior exactly (log2(2) == 1).
+      # "Boosted" (2026-11-02 "boosts" redesign, replacing the old
+      # "garret_decoupled" proposal -- see lottery_projection.R's header
+      # comment): Tickets = b^n * (1 + k + v/v_scale-capped +
+      # t/t_scale-capped). `b` reuses the "Exponent / Base" slider above
+      # (same control "Original" already uses for its base, default 2 for
+      # both families per Garret's 2026-11-02 feedback), and stays a
+      # normal adjustable slider. k, v, and t are now each a separate,
+      # independently-capped LINEAR boost added to 1 -- not an exponent --
+      # so e.g. k = 1.5 reads directly as "+150% tickets from finishes
+      # alone." k's cap comes from the "Max finish-bonus boost (k)" slider
+      # further down, in k's own native units (0-2, default 1.5 -- NOT
+      # routed through any multiplier/log abstraction, per Garret's
+      # 2026-11-02 feedback), acting through the Finish-Bonus Ramp sliders
+      # (default ramp 2 for this family); v and t get their own scale/cap
+      # controls here, each designed to land in the same "0 to a few"
+      # range as k.
       conditionalPanel(
-        condition = "input.formula_family == 'garret_decoupled'",
+        condition = "input.formula_family == 'boost'",
         helpText(
-          "b (the base above) controls only how steeply waiting (n) matters; ",
-          "the veteran bonus is a SEPARATE factor, always base 2, capped by ",
-          "the Max Boost slider below (acting through the Finish-Bonus Ramp ",
-          "sliders further down -- default ramp 2 for this family). ",
-          "Volunteer and trailwork points get their own scale/cap controls ",
-          "here, independent of k:"
+          "b (the base above) controls only how steeply waiting (n) matters. ",
+          "k, volunteering, and trailwork are each a separate boost added to ",
+          "1 -- e.g. a total of 1+k+v+t = 2.5 means +150% tickets versus b^n ",
+          "alone. k is capped by the 'Max finish-bonus boost (k)' slider ",
+          "further down (acting through the Finish-Bonus Ramp sliders -- ",
+          "default ramp 2 for this family). Volunteer and trailwork points ",
+          "get their own scale/cap controls here, independent of k:"
         ),
-        sliderInput("v_scale", "Volunteer scale (points per +1 in the exponent; left UNCAPPED on purpose -- 'sky high'):",
+        sliderInput("v_scale", "Volunteer scale (points per +1 of boost, before the cap below):",
                     min = 1, max = 20, value = 4, step = 1),
-        sliderInput("t_scale", "Trailwork scale (points per +1 in the exponent, before the cap below):",
+        sliderInput("v_cap", "Volunteer cap (max boost contribution from volunteering, ever):",
+                    min = 0, max = 4, value = 2, step = 0.25),
+        sliderInput("t_scale", "Trailwork scale (points per +1 of boost, before the cap below):",
                     min = 1, max = 20, value = 8, step = 1),
-        sliderInput("t_cap", "Trailwork cap (max exponent contribution from trailwork, ever):",
-                    min = 0, max = 2, value = 0.5, step = 0.25)
+        sliderInput("t_cap", "Trailwork cap (max boost contribution from trailwork, ever):",
+                    min = 0, max = 4, value = 0.5, step = 0.25)
       ),
       numericInput("Nm", "Number of Men to Pick:", min = 0, max = 200, value = default_nm),
       numericInput("Nw", "Number of Women to Pick:", min = 0, max = 200, value = default_nw),
@@ -449,33 +418,26 @@ ui <- fluidPage(
       hidden(
         div(id = "kRampInfoPanel",
           helpText(
-            "The current formula's finish bonus (k) ramps up with each lifetime ",
-            "race finish, then deliberately DROPS BACK DOWN to a floor -- so a ",
-            "mega-veteran (think Hardrock 100's 10+-time finishers, who get ",
-            "near-guaranteed entry) never earns more benefit than someone who's ",
-            "finished exactly 'Ramp length' times. These two sliders let you ",
-            "replay that same shape with different knobs. Defaults (ramp = 3, ",
-            "floor = 0.5) exactly reproduce today's production rule -- nothing ",
-            "changes until you move them. A third slider, 'Max finish-bonus ",
-            "boost (multiplier)', sets how high k is allowed to ramp to, in the ",
-            "intuitive 'Nx' unit rather than the raw exponent: k's cap = ",
-            "log_b(max_boost), where b is whichever base that formula actually ",
-            "raises k by -- for 'Current system' and 'Pure power' that's the ",
-            "'Exponent / Base' slider above (default 2); for Garret's decoupled ",
-            "proposal it's always a separate, fixed base 2 (decoupled from that ",
-            "slider by design). The per-finish step then becomes cap / Ramp ",
-            "length. 2026-10-13: this slider used to only appear/apply for ",
-            "Garret's decoupled proposal, with every other family stuck at a ",
-            "hardcoded cap of 0.5 x Ramp length; it now appears and applies for ",
-            "every family except Caleb's proposal, whose k term is additive ",
-            "(base^n + n*(k+service)), not an exponent, so there's no base for ",
-            "a 'multiplier' to mean anything -- Caleb's k keeps the old ",
-            "hardcoded 0.5 x Ramp length cap, unaffected by this slider (see the ",
-            "note next to it). Each family's default Max Boost value exactly ",
-            "reproduces that old hardcoded cap for its own production defaults ",
-            "(e.g. 2^1.5 for 'Current system' at base 2, ramp 3). The Floor ",
-            "slider is unaffected by Max Boost either way -- it still just sets ",
-            "what k drops back down to past the ramp, exactly as before."
+            "The 'Original' formula's finish bonus (k) ramps up with each ",
+            "lifetime race finish, then deliberately DROPS BACK DOWN to a ",
+            "floor -- so a mega-veteran (think Hardrock 100's 10+-time ",
+            "finishers, who get near-guaranteed entry) never earns more ",
+            "benefit than someone who's finished exactly 'Ramp length' times. ",
+            "These two sliders let you replay that same shape with different ",
+            "knobs. Defaults (ramp = 3, floor = 0.5) exactly reproduce today's ",
+            "production rule -- nothing changes until you move them. A third ",
+            "control sets how high k is allowed to ramp to. For 'Original', ",
+            "that's the 'Max finish-bonus boost (multiplier)' slider, in the ",
+            "intuitive 'Nx' unit: k is still an exponent, so the cap is ",
+            "k_cap = log_b(max_boost), where b is the 'Exponent / Base' ",
+            "slider above (default 2). For 'Boosted', k is LINEAR -- added ",
+            "to 1, alongside v and t -- so instead there's a direct 'Max ",
+            "finish-bonus boost (k)' slider in k's own units (default 1.5, ",
+            "today's exact production ceiling: 'we don't want to do much ",
+            "more than double' a persistent finisher's tickets from k ",
+            "alone). The per-finish step then becomes cap / Ramp length. ",
+            "The Floor slider is unaffected by either cap -- it still just ",
+            "sets what k drops back down to past the ramp, exactly as before."
           )
         )
       ),
@@ -483,42 +445,44 @@ ui <- fluidPage(
                   min = 1, max = 6, value = 3, step = 1),
       sliderInput("k_floor", "Floor (k value once past the ramp):",
                   min = 0, max = 1.5, value = 0.5, step = 0.25),
-      # 2026-10-13 (layout fix): moved here, next to k_ramp/k_floor, per
-      # Garret's request -- all three sliders drive the same k(finishes)
-      # ramp/floor/cap mechanic and belong grouped together.
+      # "Original" and "Boosted" need entirely different k-cap CONTROLS,
+      # not just different units of the same slider (per Garret's
+      # 2026-11-02 feedback: Boosted's k should be a plain, directly
+      # labeled value in k's own units, not routed through a
+      # multiplier/log abstraction) -- so each family gets its own slider,
+      # shown only when selected.
       #
-      # 2026-10-13 (generalized, per Garret's follow-up feedback: "K is in
-      # pretty much all equations, so the [Max Boost] slider should appear
-      # and work regardless [of formula family]"): un-wrapped from the
-      # garret_decoupled-only conditionalPanel it used to live in -- now
-      # always visible and (per garret_k_cap()'s header comment, top of
-      # file) wired into every family's k_cap except "caleb"'s. Default
-      # value is 2^1.5 (~2.83x), chosen so that, at this app's production
-      # defaults (Exponent/Base = 2, Ramp length = 3), log_2(2^1.5) = 1.5 =
-      # 0.5*3 EXACTLY -- i.e. this default reproduces the old hardcoded cap
-      # bit-for-bit, which is why "current" at its (new) default slider
-      # state still reproduces 2026's Weighted_Finishes exactly (see
-      # ANALYSIS_LOG.md's 2026-10-13 regression-test entry). Range widened
-      # from the old 1.1-5 (which only needed to cover garret_decoupled's
-      # 2x-ish range) to 1.01-20, since "current"/"pure_power" can now also
-      # use this against a base up to 5 (the Exponent/Base slider's max).
-      sliderInput("max_boost", "Max finish-bonus boost (multiplier):",
-                  min = 1.01, max = 20, value = 2^1.5, step = 0.1),
-      helpText(
-        "Caps k's ramp against whichever base this formula actually raises k ",
-        "by -- the 'Exponent / Base' slider above for 'Current system' and ",
-        "'Pure power', or a separate fixed base 2 for Garret's decoupled ",
-        "proposal (see the info panel above). Default reproduces today's ",
-        "hardcoded cap exactly; see that panel for the derivation."
-      ),
+      # "Original": unchanged from before. Default value is 2^1.5
+      # (~2.83x), chosen so that, at "Original"'s production defaults
+      # (Exponent/Base = 2, Ramp length = 3), log_2(2^1.5) = 1.5 = 0.5*3
+      # EXACTLY -- i.e. this default reproduces the old hardcoded cap
+      # bit-for-bit, which is why "Original" at its default slider state
+      # still reproduces 2026's Weighted_Finishes exactly (see
+      # ANALYSIS_LOG.md's 2026-10-13 regression-test entry).
       conditionalPanel(
-        condition = "input.formula_family == 'caleb'",
+        condition = "input.formula_family == 'current'",
+        sliderInput("max_boost", "Max finish-bonus boost (multiplier):",
+                    min = 1.01, max = 20, value = 2^1.5, step = 0.1),
         helpText(
-          "No effect on Caleb's proposal: k enters additively there ",
-          "(base^n + n*(finishes+service)), not as an exponent, so there's no ",
-          "base for a 'multiplier' to cap against. k still uses today's exact ",
-          "ramp/floor rule (0.5 x Ramp length) for this family regardless of ",
-          "this slider."
+          "Caps k's ramp against the 'Exponent / Base' slider above ",
+          "(k_cap = log_b(max_boost); see the info panel above). Default ",
+          "reproduces today's hardcoded cap exactly."
+        )
+      ),
+      # "Boosted": a direct cap in k's own units, 0 to 2, default 1.5 --
+      # matching today's existing production ceiling exactly (the current
+      # formula's k already tops out at 1.5 via ramp=3/floor=0.5). The
+      # range extends slightly past 1.5 only for exploration, same
+      # convention as k_floor's slider above (default 0.5, range to 1.5).
+      conditionalPanel(
+        condition = "input.formula_family == 'boost'",
+        sliderInput("k_cap_boost", "Max finish-bonus boost (k):",
+                    min = 0, max = 2, value = 1.5, step = 0.1),
+        helpText(
+          "k is capped directly here (no multiplier/log conversion) -- ",
+          "1 + k tops out at 2.5 by default, i.e. finishes alone can at ",
+          "most a bit more than double your tickets, matching today's ",
+          "system."
         )
       ),
       plotOutput("kRampPlot", height = "220px"),
@@ -689,60 +653,36 @@ withProgressSimulate <- function(tix, picks, n_sim, label = "Running Monte Carlo
 
 server <- function(input, output, session) {
 
-  # Nudge the shared "Exponent / Base" (b) and "Ramp length" (k_ramp)
-  # sliders to Garret's own proposed defaults (b=3, ramp=2) the moment the
-  # decoupled formula family is selected -- see ANALYSIS_LOG.md's
-  # 2026-10-13 "Decoupled formula design" entry and the task instructions
-  # this implements ("default to base 3 ... keep it adjustable" / "change
-  # the default ramp to 2 ... just change the DEFAULT when this formula
-  # family is active"). Both sliders are shared across all formula
+  # Nudge the shared "Ramp length" (k_ramp) slider to a sensible default
+  # the moment "Boosted" is selected (ramp=2). "Exponent / Base" (b) is
+  # deliberately NOT nudged -- per Garret's 2026-11-02 feedback, its
+  # default is 2 for BOTH formula families (it used to nudge to 3 for
+  # "Boosted" only; that's gone). k_ramp is shared across both formula
   # families (exactly like "mult" already is, hidden-but-not-reset when
-  # not "current") -- this only sets a starting point on entry to this
-  # family; it does NOT keep forcing the value back if you then adjust it,
-  # and deliberately does NOT restore b/ramp to 2/3 when you switch away,
+  # not "current") -- this only sets a starting point on entry to
+  # "Boosted"; it does NOT keep forcing the value back if you then adjust
+  # it, and deliberately does NOT restore it when you switch away,
   # consistent with how this app already treats every other shared slider
   # (nothing resets "mult" when you leave "current" either). ignoreInit =
   # TRUE so this doesn't fire on initial app load (default family is
-  # "current", not this one).
+  # "current", not "boost"). "max_boost" and "k_cap_boost" each belong to
+  # exactly one family now (see the Finish-Bonus Ramp section's
+  # conditionalPanels), so neither needs nudging -- there's no OTHER
+  # family that could have left either in a stale state.
   #
-  # 2026-10-13: extended to also nudge "max_boost" (the Max Boost slider),
-  # per Garret's feedback that the slider should apply to every family, not
-  # just garret_decoupled -- same one-time-nudge-on-entry pattern as
-  # exp/k_ramp above, not a continuous binding (so, same as those two
-  # sliders, nothing forces max_boost back if you adjust it afterward, and
-  # nothing restores it when you switch away). Each branch's target value
-  # is chosen so that, right after switching into that family, k_cap ==
-  # 0.5 * (whatever Ramp length currently is) -- i.e. landing on exactly
-  # today's old hardcoded cap given the base that family's k_cap actually
-  # uses (see garret_k_cap()'s header comment, top of file):
-  #   - "garret_decoupled": unchanged from before this generalization --
-  #     max_boost = 2.0 (base is always a fixed 2 for this family), paired
-  #     with the k_ramp nudge to 2 above, giving k_cap = log2(2) = 1 exactly
-  #     (the original hardcoded "2x veteran cap").
-  #   - "current" / "pure_power": max_boost = exp^(0.5 * k_ramp), using
-  #     whatever the shared Exponent/Base (exp) and Ramp length (k_ramp)
-  #     sliders are CURRENTLY set to at the moment of switching (which, on
-  #     a fresh app load where family starts as "current", are exp=2,
-  #     k_ramp=3 -- giving the slider's own built-in initial value of 2^1.5
-  #     exactly, so this branch is a no-op in that specific case; it only
-  #     does real work if you've already changed exp/k_ramp, e.g. by
-  #     bouncing in from garret_decoupled first). This is what makes the
-  #     slider's EFFECT, not just its visibility, generalize to these two
-  #     families: moving exp or k_ramp and then re-selecting the family
-  #     re-centers Max Boost on "today's old rule" for whatever base/ramp
-  #     you've now got dialed in.
-  #   - "caleb": deliberately NOT nudged. The slider has no effect on this
-  #     family's additive k term (garret_k_cap() returns NULL for "caleb"
-  #     unconditionally -- see that function's header comment), so resetting
-  #     it here would be cosmetic noise with no corresponding behavior
-  #     behind it.
+  # Switching back to "current" re-centers Max Boost on k_cap = 0.5 *
+  # (whatever Ramp length currently is) in LOG units against whichever base
+  # the Exponent/Base slider is currently set to -- i.e. landing on exactly
+  # today's old hardcoded cap (see garret_k_cap()'s header comment, top of
+  # file). On a fresh app load (exp=2, k_ramp=3) this is a no-op, since it
+  # reproduces the slider's own built-in initial value of 2^1.5 exactly; it
+  # only does real work if you've already changed k_ramp, e.g. by bouncing
+  # in from "Boosted" first.
   observeEvent(input$formula_family, {
     family <- input$formula_family
-    if (identical(family, "garret_decoupled")) {
-      updateSliderInput(session, "exp", value = 3)
+    if (identical(family, "boost")) {
       updateSliderInput(session, "k_ramp", value = 2)
-      updateSliderInput(session, "max_boost", value = 2.0)
-    } else if (family %in% c("current", "pure_power")) {
+    } else if (identical(family, "current")) {
       updateSliderInput(session, "max_boost",
                          value = as.numeric(input$exp) ^ (0.5 * as.numeric(input$k_ramp)))
     }
@@ -784,13 +724,10 @@ server <- function(input, output, session) {
     family <- input$formula_family
     toggles <- input$odds_toggles
     apps <- input$apps
-    # k_cap is non-NULL for every family except "caleb" (see garret_k_cap()'s
-    # header comment for why caleb is the one exception -- additive k term,
-    # no coherent "boost multiplier"). exp_val doubles as the base for
-    # "current"/"pure_power"; garret_k_cap() ignores it and always uses base
-    # 2 for "garret_decoupled" (decoupled by design).
+    # exp_val doubles as the base for "current"'s k exponent; garret_k_cap()
+    # treats "boost"'s k_cap as linear instead (see its header comment).
     k_val <- derive_k_from_finishes(input$finishes, input$k_ramp, input$k_floor,
-                                     k_cap = garret_k_cap(family, input$max_boost, exp_val))
+                                     k_cap = garret_k_cap(family, input$max_boost, exp_val, input$k_cap_boost))
     v_sim <- input$volunteer
     t_sim <- if ("drop_trail" %in% toggles) 0 else input$trailwork
 
@@ -801,30 +738,13 @@ server <- function(input, output, session) {
       } else {
         paste0(exp_val, "^(", k_val, " + ", apps, " + 1) + ", mult_val, " * log(", v_sim, " + ", t_sim, " + 1)")
       },
-      "pure_power" = paste0(exp_val, "^(", apps, " + ", k_val, ")  [service points have no effect in this family]"),
-      "caleb" = paste0(exp_val, "^", apps, " + ", apps, " * (", k_val, " + ", (v_sim + t_sim), ")"),
-      "garret_decoupled" = {
+      "boost" = {
         # Same rescale apply_service_toggles() applies for this family in
-        # base_data()/userTickets -- v uncapped, t capped -- shown here so
+        # base_data()/userTickets -- v and t each capped -- shown here so
         # the live display always matches what the actual draw uses.
-        #
-        # BUG FIX (2026-10-13, Garret's UI report): this used to append a
-        # bracketed explanatory aside ("[b=... controls only n-steepness;
-        # ... capped at 2x via k]") directly onto the end of this paste0()
-        # call, so it rendered inline as part of the formula text itself --
-        # explanatory/reasoning text leaking into what's supposed to be a
-        # clean math expression. That explanation already belongs (and now
-        # lives only) in the conditionalPanel helpText right above the
-        # sliders for this family and in the collapsible "Finish-Bonus
-        # Ramp" help text below -- it has no business being re-stated
-        # inside the live formula display. Whatever extra stray character(s)
-        # Garret saw trailing after that bracket is removed along with it,
-        # since nothing follows this paste0() call's closing parenthesis
-        # anymore. Fixed by simply not building that aside into formula_text
-        # at all -- the formula display is now just the clean math.
-        v_contrib <- round(v_sim / input$v_scale, 2)
+        v_contrib <- round(pmin(v_sim / input$v_scale, input$v_cap), 2)
         t_contrib <- round(pmin(t_sim / input$t_scale, input$t_cap), 2)
-        paste0(exp_val, "^", apps, " * 2^(", k_val, " + ", v_contrib, " + ", t_contrib, ")")
+        paste0(exp_val, "^", apps, " * (1 + ", k_val, " + ", v_contrib, " + ", t_contrib, ")")
       }
     )
     HTML(paste0("<div class='formula-box'><span class='formula-highlight'>Tickets = ", formula_text, "</span></div>"))
@@ -841,15 +761,14 @@ server <- function(input, output, session) {
   # just flattens to a different floor and after a different ramp).
   output$kRampPlot <- renderPlot({
     finishes <- 0:10
-    # "Your settings" needs the Max Boost-derived cap too (now for every
-    # family except "caleb" -- see garret_k_cap()'s header comment), so the
-    # plot matches what the formula actually uses (same garret_k_cap()
-    # helper as every other derive_k_from_finishes() call site).
+    # "Your settings" needs the Max Boost-derived cap too, so the plot
+    # matches what the formula actually uses (same garret_k_cap() helper as
+    # every other derive_k_from_finishes() call site).
     dd <- data.frame(
       finishes = rep(finishes, 2),
       k = c(derive_k_from_finishes(finishes, 3, 0.5),
             derive_k_from_finishes(finishes, input$k_ramp, input$k_floor,
-                                    k_cap = garret_k_cap(input$formula_family, input$max_boost, input$exp))),
+                                    k_cap = garret_k_cap(input$formula_family, input$max_boost, input$exp, input$k_cap_boost))),
       which = rep(c("Current production rule (ramp 3, floor 0.5)", "Your settings"),
                   each = length(finishes))
     )
@@ -885,7 +804,11 @@ server <- function(input, output, session) {
                     "2026" = "2026HLdata.csv",
                     "2025" = "2025HLdata.csv",
                     "2024" = "2024HLdata.csv",
-                    "2023" = "2023HLdata.csv")
+                    "2023" = "2023HLdata.csv",
+                    "2027sim" = "synthetic_2027HLdata.csv",
+                    "2028sim" = "synthetic_2028HLdata.csv",
+                    "2029sim" = "synthetic_2029HLdata.csv",
+                    "2030sim" = "synthetic_2030HLdata.csv")
     df <- read.csv(fname, stringsAsFactors = FALSE)
 
     # 2026 is the only file with a Status column, and it includes 40
@@ -911,11 +834,11 @@ server <- function(input, output, session) {
       df$Weighted_Finishes <- as.numeric(df$Weighted_Finishes)
       df$Previous_Finishes <- reconstruct_2026_raw_finishes(df$Weighted_Finishes, df$runner_id)
       df$k <- derive_k_from_finishes(df$Previous_Finishes, input$k_ramp, input$k_floor,
-                                      k_cap = garret_k_cap(input$formula_family, input$max_boost, input$exp))
+                                      k_cap = garret_k_cap(input$formula_family, input$max_boost, input$exp, input$k_cap_boost))
     } else {
       df$Previous_Finishes <- as.numeric(df$Previous_Finishes)
       df$k <- derive_k_from_finishes(df$Previous_Finishes, input$k_ramp, input$k_floor,
-                                      k_cap = garret_k_cap(input$formula_family, input$max_boost, input$exp))
+                                      k_cap = garret_k_cap(input$formula_family, input$max_boost, input$exp, input$k_cap_boost))
     }
 
     df <- df %>% mutate(
@@ -926,7 +849,8 @@ server <- function(input, output, session) {
     )
 
     df$service <- apply_service_toggles(df$Volunteer_Points, df$Extra_Trailwork_Points, input$odds_toggles,
-                                         input$formula_family, input$v_scale, input$t_scale, input$t_cap)
+                                         input$formula_family, input$v_scale, input$t_scale, input$t_cap,
+                                         input$v_cap)
     formula_fn <- build_app_formula(input$formula_family, input$exp, input$mult, input$odds_toggles)
     df$tickets <- formula_fn(df$Previous_Applications, df$k, df$service)
     df
@@ -937,11 +861,12 @@ server <- function(input, output, session) {
   # of the real data).
   output$userTickets <- renderText({
     k_sim <- derive_k_from_finishes(input$finishes, input$k_ramp, input$k_floor,
-                                     k_cap = garret_k_cap(input$formula_family, input$max_boost, input$exp))
+                                     k_cap = garret_k_cap(input$formula_family, input$max_boost, input$exp, input$k_cap_boost))
     v_sim <- pmin(input$volunteer, 30)
     t_sim <- pmin(input$trailwork, 10)
     s_sim <- apply_service_toggles(v_sim, t_sim, input$odds_toggles,
-                                    input$formula_family, input$v_scale, input$t_scale, input$t_cap)
+                                    input$formula_family, input$v_scale, input$t_scale, input$t_cap,
+                                    input$v_cap)
     formula_fn <- build_app_formula(input$formula_family, input$exp, input$mult, input$odds_toggles)
     round(formula_fn(input$apps, k_sim, s_sim), 2)
   })
@@ -1065,10 +990,11 @@ server <- function(input, output, session) {
     df <- processed_data()
     elig_m <- sum(df$Gender == "Male" & df$SelectionStatus == "Auto-Selected")
     elig_w <- sum(df$Gender == "Female" & df$SelectionStatus == "Auto-Selected")
+    year_label <- sub("sim$", " (simulated)", input$year_select)
     sprintf(
       paste0("Guaranteed entry at %d+ prior losses, using %s data: %d men already qualify ",
              "(vs. %d men's slots total), %d women already qualify (vs. %d women's slots total)."),
-      threshold, input$year_select, elig_m, input$Nm, elig_w, input$Nw
+      threshold, year_label, elig_m, input$Nm, elig_w, input$Nw
     )
   })
 

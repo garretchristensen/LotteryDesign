@@ -4,6 +4,151 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-11-02 (3) — Exponent/Base default unified at 2 for both formulas
+
+Small follow-up to entry (2) below: "Boosted" used to nudge the shared
+"Exponent / Base" slider to 3 the moment it was selected (Garret's original
+proposed default for the old decoupled design). Garret asked for both
+formula styles to default to base 2 instead -- removed that nudge in
+`app.R`'s `observeEvent(input$formula_family, ...)`. The slider's own
+baseline value was already 2, so "Original" was unaffected; "Boosted" now
+also opens at b=2 until moved by hand. The separate "Ramp length" nudge to
+2 for "Boosted" (unrelated to the base) is untouched.
+
+## 2026-11-02 (2) — Auto-waitlist simulation + simulated 2027-2030 years
+
+**Sidebar follow-up (resolves most of the earlier entry's "still open" list):**
+Garret's answers: Max Boost stays untouched for "Original"; "Boosted"'s k no
+longer shares that slider at all -- it got its own direct slider in k's own
+units (0-2, default 1.5 = today's exact production ceiling: "we don't want
+to do much more than double"). v/t scale+cap sliders confirmed fine as
+built. Exponent/Base floor stays at 2 (not going lower).
+
+**Auto-waitlist rule, actually simulated (not just reasoned about) --
+`cohort_sim.R`'s `simulate_lottery()` gained `waitlist_tiers` /
+`primary_picks` / `waitlist_throughput` params (backward compatible: default
+`waitlist_tiers = 0` reproduces every existing scenario exactly). Mechanic:
+every year, recompute whichever n value(s) are currently highest in the pool
+(`waitlist_tiers` of them -- a RELATIVE threshold, not fixed), and give
+non-drawn members of that tier first priority for that year's waitlist
+call-ups (random tiebreak), ahead of the ordinary ticket-weighted waitlist
+order. Confirmed against Garret's own numbers first: `2026HLdata.csv` has
+exactly 28 men at 3 prior apps and 5 at 4 (today's max), matching his "28
+with 3... 5 with 4" example exactly.
+
+Hit a real bug while building this: `sample(x)` on a length-1 numeric `x`
+means "shuffle `1:x`," not "here is your one element" (the same gotcha
+`app.R`'s `simulate_draw()` already has a comment about) -- with exactly one
+tier member, this silently turned one real row index (e.g. row 2203) into a
+fabricated "tier" of up to 2203 fake members. Fixed by guarding the `sample()`
+call when the tier has 0-1 members. Worth remembering: this exact gotcha has
+now bitten this codebase twice.
+
+**Result** (`auto_waitlist_sim.R`, `Rscript cohort_sim.R`'s own formula,
+growth 25%/yr, 18 simulated years, 15 reps -- see
+`sim_results/auto_waitlist_backlog.{csv,png}`): the answer depends sharply
+on how many tiers get priority, and it's more nuanced than "yes, forever":
+
+- **Single tier (just this year's single highest n, matching Garret's own
+  example literally)**: tier size oscillates 4-30 people/year (grows while a
+  cohort ages, resets when it breaks into a thinner, older n-bracket) and
+  mostly clears within the ~22 (M) / ~28 (F) annual waitlist throughput.
+  Cumulative never-served count does slowly drift upward over 18 years (0 to
+  62 men, 0 to 85 women) -- a real, slow backlog, but NOT runaway: most years
+  fully clear, and it looks much closer to "a bit more friction" than "lasts
+  forever."
+- **Two tiers (Garret's own proposed extension -- "we could also add a
+  second year")**: a different story. Tier size is routinely 40-110+
+  people/year, far exceeding the fixed waitlist throughput almost every
+  year, and the backlog compounds essentially monotonically -- 667 men and
+  802 women NEVER served after 18 years, with no sign of leveling off. This
+  is the "lasts essentially forever" dynamic Garret's intuition flagged,
+  but it only shows up once a SECOND tier is added; the single-tier version
+  he described concretely is much closer to self-clearing.
+- Takeaway: if this rule gets adopted, one tier (not two) is the version
+  that doesn't quietly turn into a permanent, growing waitlist.
+
+Caveat: `cum_unserved` is a worst-case running sum (assumes nobody in the
+backlog ever drops out and re-qualifies every subsequent year); real
+attrition at high n (retention is only ~50-57% even without this rule) means
+the true number is somewhat lower. Didn't model attrition OUT of backlog
+status specifically -- a natural next step if this gets implemented for
+real, not just explored here.
+
+**Simulated 2027-2030 applicant pools** (`generate_synthetic_years.R`, new
+"(simulated)" options in `app.R`'s Data Year dropdown): advances the real
+2026 pool forward one seeded run under the production formula (bootstrapped
+rookies from real profiles, panel-based retention/dormancy, 25%/yr growth),
+keeping Volunteer_Points and Extra_Trailwork_Points SEPARATE throughout
+(unlike `cohort_sim.R`, which only ever needs their sum and collapses them
+on load -- app.R's "Boosted" family needs them apart, so this is a
+standalone script, not a `cohort_sim.R` modification). Men's simulated pool
+grows 935 (2026) -> 1303 -> 1791 -> 2364 -> 3100 by 2030 (~31-37%/yr
+compounding, a bit above the 25% rookie-only input rate since the backlog
+itself is also growing -- consistent with the real system's observed
+25-30%/yr). These are ONE plausible scenario each, not a forecast or an
+average -- re-run the script for a different draw.
+
+---
+
+## 2026-11-02 — Formula consolidation: "boosts" design replaces decoupled/pure-power/Caleb
+
+Garret asked to simplify the dashboard's selectable formula families from
+four down to two, and to redesign the second family around an explicitly
+interpretable shape: `Tickets = b^n * (1 + k + v + t)`, where k (finish
+bonus), v (volunteer), and t (trailwork) are each independently capped
+somewhere in the 0-to-3-or-4 range, so every term reads directly as a
+percentage boost on top of the waiting-time term (e.g. k=1.5 means "+150%
+tickets from finishes alone").
+
+**What changed:**
+- Removed "Pure power, no service credit" and "Caleb's proposal" from the
+  sidebar's `Ticket formula` selector. Only "Original" (the system's
+  actual 2026 formula, `exp^(n+k+1) + mult*log(s+1)`) and the new
+  "Boosted" family remain selectable.
+- "Boosted" replaces the old "Garret's decoupled proposal"
+  (`b^n * 2^(k+v+t)`, with k/v/t as exponents and v deliberately left
+  uncapped, "sky high"). The new shape drops the exponential wrapper
+  entirely: k, v, and t are now linear terms added to 1, each capped —
+  v is no longer uncapped. This is a real behavior change for anyone who
+  had explored the old decoupled family with a large volunteer total; the
+  new design trades "sky high" for "every term bounded and
+  interpretable," which was the explicit point of the request.
+- `garret_k_cap()` (app.R) now converts the "Max Boost" slider's multiplier
+  unit into a LINEAR cap for "Boosted" (`k_cap = max_boost - 1`) instead of
+  a log-base cap — there's no exponent left for k to be capped against.
+  "Original" keeps the old log-based conversion unchanged.
+- Added a new "Volunteer cap" slider (`v_cap`), mirroring the existing
+  "Trailwork cap," and widened both caps' slider range from 0-2 to 0-4 to
+  match the "0 to 3 or 4" design target. Default behavior for "Original"
+  is unaffected throughout.
+- `build_ticket_formula()`'s `caleb` case is deleted outright (nothing else
+  referenced it). The `pure_power` case is KEPT in `lottery_projection.R`,
+  but no longer reachable from the sidebar selector — `app.R`'s
+  `convergence_projection()` still calls it directly by name for its
+  fixed, already-documented base-3/base-4 historical comparison chart
+  (unrelated to the interactive selector). Flagged to Garret as a judgment
+  call rather than silently removed; open to deleting that chart too if
+  he'd rather.
+
+**Still open / asked Garret directly (see chat, not reproduced here):**
+whether the `v_cap`/`t_cap` default values (2 and 0.5) and the "Boosted"
+family's nudge-on-select defaults (b=3, ramp=2, Max Boost=4) are the
+magnitudes he actually wants, and a batch of sidebar-control questions
+(Service-Credit Multiplier's continued relevance, whether Exponent/Base's
+2-5 range still makes sense now that "Boosted" wants friendlier small-b
+values, whether the Finish-Bonus Ramp section's simplification now that
+Caleb's exception is gone changes anything else) raised for his review
+before changing further defaults.
+
+**Also discussed, not yet implemented:** an "auto-waitlist" rule where
+anyone in the most-oversubscribed applicant class who loses the lottery
+goes automatically to the top of next year's waitlist (ranked by total
+points, random tiebreak) instead of back into the ordinary pool. Not
+coded yet — see chat for the back-of-envelope reasoning on why this
+tier, once anyone enters it, likely never fully clears (more losers from
+that class enter every year than the class's own waitlist callups remove).
+
 ## 2026-10-13 (12) — Merging dashboardguy's branch into main
 
 **Rollback point:** before this merge, `main` is tagged

@@ -106,6 +106,27 @@ load_dormant_2026 <- function(path = "lottery_panel.csv") {
 #              draw (Inf = no such rule). If they outnumber the slots, they all
 #              get in anyway (oversubscribed) and nobody else is drawn.
 # reps         Monte Carlo replications
+# waitlist_tiers, primary_picks, waitlist_throughput: Garret's 2026-11-02
+#   "auto-waitlist" proposal -- EVERY YEAR, recompute whichever n value(s)
+#   are currently the pool's highest (`waitlist_tiers` of them, e.g. 1 =
+#   just the single highest n present, 2 = the two highest), and give
+#   anyone in that tier who ISN'T drawn automatic FIRST priority for this
+#   year's waitlist call-ups (random tiebreak among themselves), jumping
+#   ahead of the ordinary ticket-weighted waitlist order for everyone else.
+#   This is the same "automatics served first, no competing for slots"
+#   shape as `auto_at` already implements for the PRIMARY draw -- just
+#   applied one stage later, to the WAITLIST's own throughput, and with a
+#   threshold that's RELATIVE (whatever's highest this year) instead of a
+#   fixed n. `waitlist_tiers = 0` (the default) disables this entirely and
+#   reproduces prior behavior exactly: the single weighted draw of `picks`
+#   (today's "effective" 118/142, already folding the ordinary -- i.e.
+#   ticket-weighted, not priority -- waitlist in) is unchanged. Turning it
+#   on requires splitting that single `picks` number into what it was
+#   actually standing in for: `primary_picks` (the REAL draw -- 96 M / 114
+#   F in 2026) and `waitlist_throughput` (REAL annual waitlist call-ups --
+#   ~22 M / ~28 F per CLAUDE.md/ANALYSIS_LOG.md), since the priority rule
+#   only makes sense once the waitlist is modeled as its own distinct,
+#   ordered stage rather than folded into one undifferentiated draw.
 simulate_lottery <- function(pool0, formula, years = 8, auto_at = Inf,
                              comeback = c(0.22, 0.10, 0.05), dormant0 = NULL,
                              picks = c(M = 118, F = 142),
@@ -113,7 +134,10 @@ simulate_lottery <- function(pool0, formula, years = 8, auto_at = Inf,
                              retention = list(M = c(0.42, 0.54, 0.57, 0.50),
                                               F = c(0.34, 0.50, 0.50, 0.50)),
                              service_mode = c("latest", "cumulative"),
-                             reps = 30, seed = 1, start_year = 2027) {
+                             reps = 30, seed = 1, start_year = 2027,
+                             waitlist_tiers = 0,
+                             primary_picks = c(M = 96, F = 114),
+                             waitlist_throughput = c(M = 22, F = 28)) {
   service_mode <- match.arg(service_mode)
   set.seed(seed)
   rookies0 <- pool0 %>% filter(n == 0) %>% select(pool, n, k, s)
@@ -137,7 +161,7 @@ simulate_lottery <- function(pool0, formula, years = 8, auto_at = Inf,
     list(active = bind_rows(losers[stay, ], returned), dormant = bind_rows(dormant, new_dormant))
   }
 
-  year_rows <- list(); cohort_rows <- list()
+  year_rows <- list(); cohort_rows <- list(); backlog_rows <- list()
   for (rep in seq_len(reps)) {
     d0 <- if (is.null(dormant0)) pool0[0, ] %>% mutate(yrs = 0L) else dormant0
     d0 <- d0 %>% mutate(drawn = FALSE, s0 = s, cohort = 2026 - n - yrs, won = NA_integer_)
@@ -159,12 +183,88 @@ simulate_lottery <- function(pool0, formula, years = 8, auto_at = Inf,
       for (pl in names(picks)) {
         idx <- which(pool$pool == pl)
         auto <- idx[pool$n[idx] >= auto_at]; rest <- setdiff(idx, auto)
-        left <- max(picks[[pl]] - length(auto), 0)
-        pool$odds[auto] <- 1; pool$drawn[auto] <- TRUE
-        if (left > 0 && length(rest) > 0) {
-          pool$odds[rest] <- calc_odds(pool$tickets[rest], left)
-          pool$drawn[rest[draw_lottery(pool$tickets[rest], left)]] <- TRUE
-        } else pool$odds[rest] <- 0
+
+        if (waitlist_tiers > 0) {
+          # Split what `picks` used to mean (one undifferentiated weighted
+          # draw) into a REAL primary draw + a REAL, ordered waitlist stage,
+          # so the priority rule has an actual queue to jump.
+          left <- max(primary_picks[[pl]] - length(auto), 0)
+          pool$odds[auto] <- 1; pool$drawn[auto] <- TRUE
+          if (left > 0 && length(rest) > 0) {
+            pool$odds[rest] <- calc_odds(pool$tickets[rest], left)
+            primary_won <- rest[draw_lottery(pool$tickets[rest], left)]
+          } else {
+            pool$odds[rest] <- 0
+            primary_won <- integer(0)
+          }
+          pool$drawn[primary_won] <- TRUE
+          remainder <- setdiff(rest, primary_won)
+
+          # Ordinary (non-priority) waitlist order: same exponential-race
+          # ticket-weighting the primary draw uses, continued among whoever
+          # is left -- this is "today's real rule" for everyone NOT in the
+          # priority tier.
+          ordinary_order <- if (length(remainder) > 0) {
+            remainder[order(rexp(length(remainder)) / pool$tickets[remainder])]
+          } else integer(0)
+
+          # This year's priority tier: the top `waitlist_tiers` DISTINCT n
+          # values present in the FULL applicant pool this pool/year
+          # (`rest` -- everyone eligible for the lottery, auto-guarantees
+          # aside), recomputed fresh every year -- NOT a fixed threshold.
+          # Deliberately NOT computed from `remainder`: if the primary
+          # draw's own ticket-weighting happens to sweep up the entire
+          # tier (plausible -- they have the most tickets), `remainder`
+          # would contain none of them, and picking "the top n among
+          # what's left" would wrongly fall back to the (huge) rookie
+          # cohort at n=0 -- the literal opposite of "most-applied."
+          # Priority only ever applies to tier members who are ALSO in
+          # `remainder` (i.e. weren't already swept up by the primary
+          # draw). Random tiebreak among tier members themselves (per
+          # Garret's spec), via a random shuffle.
+          pool_n <- pool$n[rest]
+          top_ns <- sort(unique(pool_n), decreasing = TRUE)[seq_len(min(waitlist_tiers, length(unique(pool_n))))]
+          is_priority <- pool$n[remainder] %in% top_ns
+          tier_members <- remainder[is_priority]
+          # sample(x) on a length-1 NUMERIC x means "shuffle 1:x", not
+          # "here is your one element" -- same gotcha app.R's
+          # simulate_draw() already documents. With exactly one tier
+          # member, that silently turned one real row index (e.g. 2203)
+          # into a random permutation of 1:2203 -- i.e. a fabricated
+          # "tier" of up to 2203 fake members. Guard it.
+          priority_idx <- if (length(tier_members) > 1) sample(tier_members) else tier_members
+          waitlist_order <- c(priority_idx, ordinary_order[!(ordinary_order %in% priority_idx)])
+
+          wl_cap <- waitlist_throughput[[pl]]
+          waitlist_called <- if (length(waitlist_order) > 0) {
+            waitlist_order[seq_len(min(wl_cap, length(waitlist_order)))]
+          } else integer(0)
+          pool$drawn[waitlist_called] <- TRUE
+
+          # Backlog: this year's priority-tier members who did NOT get
+          # called up -- the group whose fate answers "does this rule ever
+          # clear, or does it compound?" They roll into next year at n+1,
+          # same as any other loser; no separate carry-over state needed,
+          # since re-qualifying for priority next year happens automatically
+          # (their n is now even higher).
+          unserved <- setdiff(priority_idx, waitlist_called)
+          backlog_rows[[length(backlog_rows) + 1]] <- tibble(
+            pool = pl, rep = rep, year = yr,
+            top_n = paste(top_ns, collapse = ","),
+            tier_size = length(priority_idx),
+            tier_served = length(priority_idx) - length(unserved),
+            tier_backlog = length(unserved)
+          )
+        } else {
+          # Unchanged original behavior: one undifferentiated weighted draw
+          # of `picks` (today's "effective" total).
+          left <- max(picks[[pl]] - length(auto), 0)
+          pool$odds[auto] <- 1; pool$drawn[auto] <- TRUE
+          if (left > 0 && length(rest) > 0) {
+            pool$odds[rest] <- calc_odds(pool$tickets[rest], left)
+            pool$drawn[rest[draw_lottery(pool$tickets[rest], left)]] <- TRUE
+          } else pool$odds[rest] <- 0
+        }
       }
       # --- record year summary ---
       year_rows[[length(year_rows) + 1]] <- pool %>%
@@ -182,12 +282,32 @@ simulate_lottery <- function(pool0, formula, years = 8, auto_at = Inf,
   }
   yearly <- bind_rows(year_rows)
   cohorts <- bind_rows(cohort_rows)
+  backlog <- if (length(backlog_rows) > 0) bind_rows(backlog_rows) else NULL
   # cohort sizes (rookie entrants) per pool/year, for cumulative entry rates
   cohort_size <- yearly %>% filter(n == 0) %>% group_by(pool, cohort = year) %>%
     summarise(size = mean(N), .groups = "drop") %>%
     bind_rows(pool0 %>% mutate(cohort = 2026 - n) %>% count(pool, cohort, name = "size"))
-  list(yearly = yearly, cohorts = cohorts, cohort_size = cohort_size,
+  list(yearly = yearly, cohorts = cohorts, cohort_size = cohort_size, backlog = backlog,
        picks = picks, years = years, start_year = start_year, reps = reps)
+}
+
+# summarise_backlog(): per-year, averaged over reps -- is the auto-waitlist
+# priority tier clearing (tier_backlog ~ 0 every year) or compounding
+# (tier_backlog growing year over year)? `cum_unserved` approximates the
+# running total of people who have EVER been bumped to this tier without
+# being served, under the (conservative/worst-case) assumption that an
+# unserved member keeps re-qualifying for the tier every subsequent year
+# until served -- i.e. nobody in the backlog is lost to attrition. Real
+# attrition (retention < 1 at high n) means the true number is somewhat
+# lower than this running sum; comparing the two still shows the trend.
+summarise_backlog <- function(sim, pl = "M") {
+  if (is.null(sim$backlog)) stop("summarise_backlog(): sim was not run with waitlist_tiers > 0")
+  sim$backlog %>% filter(pool == pl) %>%
+    group_by(year) %>%
+    summarise(tier_size = mean(tier_size), tier_served = mean(tier_served),
+              tier_backlog = mean(tier_backlog), .groups = "drop") %>%
+    arrange(year) %>%
+    mutate(cum_unserved = cumsum(tier_backlog))
 }
 
 ## ---------------------------------------------------------------------------
