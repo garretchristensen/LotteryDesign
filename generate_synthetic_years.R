@@ -21,10 +21,17 @@
 ## regardless of which hypothetical formula someone later explores on the
 ## resulting pool in the dashboard, exactly mirroring how a REAL year's
 ## Status column reflects what actually happened, independent of whatever
-## formula the dashboard's selector is currently set to. Growth is fixed at
-## 25%/yr (this app's "recent actual trend" default). ONE seeded,
-## deterministic run (not averaged over reps) -- these are meant to be
-## concrete, reproducible snapshots, not a distribution.
+## formula the dashboard's selector is currently set to.
+##
+## 2026-11-02 (2): generates one variant PER growth rate (10%/25%/30%/yr),
+## matching the three choices on app.R's "Applicant pool growth" dropdown
+## (same control the Multi-Year Projection section already uses), so the
+## Data Year dropdown's "(simulated)" options actually reflect whichever
+## growth rate is selected there instead of a value baked in once. Each
+## (year, growth rate) combination is its OWN seeded, deterministic run
+## (not averaged over reps) -- these are meant to be concrete, reproducible
+## snapshots, not a distribution -- written to
+## synthetic_<year>_g<rate>HLdata.csv (e.g. synthetic_2028_g25HLdata.csv).
 ##
 ## Known simplifications (consistent with cohort_sim.R's own documented
 ## ones): new rookies are bootstrapped (with replacement) from REAL 2026
@@ -38,16 +45,13 @@
 ## unmask 4+-time veterans it has no panel history for -- fine, since none
 ## of these people exist yet).
 ##
-## Run: Rscript generate_synthetic_years.R  (a few seconds)
+## Run: Rscript generate_synthetic_years.R  (a few seconds for all 12 files)
 
 source("cohort_sim.R")
 
-SEED <- 2027
-GROWTH <- 0.25
 TARGET_YEARS <- 2027:2030
 PICKS <- c(M = 118, F = 142)   # today's "effective" combined draw+waitlist throughput
-
-set.seed(SEED)
+GROWTH_RATES <- c("10" = 0.10, "25" = 0.25, "30" = 0.30)   # matches app.R's growth_rate choices
 
 load_pool_2026_vt <- function(path = "2026HLdata.csv") {
   read.csv(path, check.names = FALSE) %>%
@@ -55,10 +59,6 @@ load_pool_2026_vt <- function(path = "2026HLdata.csv") {
     transmute(pool = `Lottery Pool`, n = Previous_Applications, k = Weighted_Finishes,
               v = Volunteer_Points, t = Extra_Trailwork_Points, drawn = Status == "drawn")
 }
-
-pool0 <- load_pool_2026_vt()
-dormant0 <- load_dormant_2026() %>% mutate(v = 0, t = 0) %>% select(-s)
-rookies0 <- pool0 %>% filter(n == 0) %>% select(pool, n, k, v, t)
 
 ret_p <- function(pl, n) {
   rM <- c(0.42, 0.54, 0.57, 0.50); rF <- c(0.34, 0.50, 0.50, 0.50)
@@ -78,46 +78,54 @@ advance_losers <- function(pool, dormant) {
   list(active = bind_rows(losers[stay, ], returned), dormant = bind_rows(dormant, new_dormant))
 }
 
-st <- pool0 %>% advance_losers(dormant = dormant0 %>% mutate(drawn = FALSE))
-pool <- st$active; dormant <- st$dormant
-n_rookies <- round(table(rookies0$pool) * (1 + GROWTH))
+# generate_years(): runs one full, independently-seeded (year, growth rate)
+# simulation and writes each target year's resulting pool to its own CSV.
+generate_years <- function(growth, seed) {
+  set.seed(seed)
+  pool0 <- load_pool_2026_vt()
+  dormant0 <- load_dormant_2026() %>% mutate(v = 0, t = 0) %>% select(-s)
+  rookies0 <- pool0 %>% filter(n == 0) %>% select(pool, n, k, v, t)
 
-snapshot_cols <- c("Lottery Pool", "Previous_Applications", "Weighted_Finishes",
-                    "Volunteer_Points", "Extra_Trailwork_Points", "Status", "runner_id")
+  st <- pool0 %>% advance_losers(dormant = dormant0 %>% mutate(drawn = FALSE))
+  pool <- st$active; dormant <- st$dormant
+  n_rookies <- round(table(rookies0$pool) * (1 + growth))
 
-for (y in seq_along(TARGET_YEARS)) {
-  yr <- TARGET_YEARS[y]
-  n_rookies <- round(n_rookies * (1 + GROWTH))
-  new <- bind_rows(lapply(names(n_rookies), function(pl) {
-    src <- rookies0[rookies0$pool == pl, ]
-    src[sample(nrow(src), n_rookies[[pl]], replace = TRUE), ]
-  }))
-  pool <- bind_rows(pool, new)
+  for (y in seq_along(TARGET_YEARS)) {
+    yr <- TARGET_YEARS[y]
+    n_rookies <- round(n_rookies * (1 + growth))
+    new <- bind_rows(lapply(names(n_rookies), function(pl) {
+      src <- rookies0[rookies0$pool == pl, ]
+      src[sample(nrow(src), n_rookies[[pl]], replace = TRUE), ]
+    }))
+    pool <- bind_rows(pool, new)
 
-  pool$tickets <- formulas[["current"]](pool$n, pool$k, pool$v + pool$t)
-  pool$Status <- "lost"
-  for (pl in names(PICKS)) {
-    idx <- which(pool$pool == pl)
-    ranked <- idx[order(rexp(length(idx)) / pool$tickets[idx])]
-    n_drawn <- min(96, length(ranked)) ; if (pl == "F") n_drawn <- min(114, length(ranked))
-    n_wait <- min(PICKS[[pl]] - n_drawn, length(ranked) - n_drawn)
-    if (n_drawn > 0) pool$Status[ranked[seq_len(n_drawn)]] <- "drawn"
-    if (n_wait > 0) pool$Status[ranked[n_drawn + seq_len(n_wait)]] <- "waitlist"
-  }
-  pool$drawn <- pool$Status %in% c("drawn", "waitlist")   # both leave the pool (real throughput)
+    pool$tickets <- formulas[["current"]](pool$n, pool$k, pool$v + pool$t)
+    pool$Status <- "lost"
+    for (pl in names(PICKS)) {
+      idx <- which(pool$pool == pl)
+      ranked <- idx[order(rexp(length(idx)) / pool$tickets[idx])]
+      n_drawn <- min(96, length(ranked)) ; if (pl == "F") n_drawn <- min(114, length(ranked))
+      n_wait <- min(PICKS[[pl]] - n_drawn, length(ranked) - n_drawn)
+      if (n_drawn > 0) pool$Status[ranked[seq_len(n_drawn)]] <- "drawn"
+      if (n_wait > 0) pool$Status[ranked[n_drawn + seq_len(n_wait)]] <- "waitlist"
+    }
+    pool$drawn <- pool$Status %in% c("drawn", "waitlist")   # both leave the pool (real throughput)
 
-  if (yr %in% TARGET_YEARS) {
     snap <- pool %>% transmute(
       `Lottery Pool` = pool, Previous_Applications = n, Weighted_Finishes = k,
       Volunteer_Points = v, Extra_Trailwork_Points = t, Status = Status,
-      runner_id = sprintf("synthetic_%d_%05d", yr, row_number())
+      runner_id = sprintf("synthetic_%d_g%02d_%05d", yr, round(growth * 100), row_number())
     )
-    fname <- sprintf("synthetic_%dHLdata.csv", yr)
+    fname <- sprintf("synthetic_%d_g%02dHLdata.csv", yr, round(growth * 100))
     write.csv(snap, fname, row.names = FALSE)
     cat(sprintf("Wrote %s (%d men, %d women; %d drawn, %d waitlist)\n",
                 fname, sum(snap$`Lottery Pool` == "M"), sum(snap$`Lottery Pool` == "F"),
                 sum(snap$Status == "drawn"), sum(snap$Status == "waitlist")))
-  }
 
-  st <- advance_losers(pool, dormant); pool <- st$active; dormant <- st$dormant
+    st <- advance_losers(pool, dormant); pool <- st$active; dormant <- st$dormant
+  }
+}
+
+for (rate_label in names(GROWTH_RATES)) {
+  generate_years(GROWTH_RATES[[rate_label]], seed = 2027 + as.integer(rate_label))
 }

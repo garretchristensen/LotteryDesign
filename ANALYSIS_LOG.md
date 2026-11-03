@@ -4,6 +4,78 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-11-02 (4) — Odds shift, Original vs Boosted, on the real 2026 pool
+
+Garret asked for a summary of how draw odds shift between today's production
+formula ("Original") and "Boosted" at its dashboard defaults (b=2; k from
+the bonus-per-finish lookup 1/0.5/0.1; v = cumulative volunteer shifts / 4,
+capped +2; t = this year's trailwork shifts / 8, capped +0.5). New script:
+`odds_shift_comparison.R`.
+
+**Cumulative volunteer history:** `runner_id` only exists in `2026HLdata.csv`,
+so there's no ID-based cross-year join for service points. Built one by
+matching `First_Name`+`Last_Name` (ASCII-folded, lowercased) across
+`2022HLdata.csv`-`2026HLdata.csv` and summing `Volunteer_Shifts`/
+`Volunteer_Points`. This is the same name-matching approach this project
+already used for retention before `lottery_panel.csv` existed, with the same
+known weakness (nicknames, married-name changes, common names miss or rarely
+mis-merge some people) -- an approximation, not an audit figure. Trailwork is
+NOT summed (Garret's framing: t is one-year-only), so 2026's own
+`Extra_Trailwork_Points` is used directly, same as "Original" already does.
+**Known simplification:** this sums volunteer points across ALL years found
+for a matched name, with no way to detect a reset (running the race) in
+between for pre-2026 applicants -- an upper bound on "cumulative since last
+reset" for anyone who reset mid-window, though that's the minority case in
+any given year.
+
+**Setup:** real 2026 pool (`Status %in% c("drawn","waitlist","lost")`, same
+filter `generate_synthetic_years.R` uses), raw finish counts via the same
+panel-based reconstruction `app.R` uses for the 0.5-weighted-finish bucket,
+both formulas at today's live dashboard defaults, odds via `calc_odds()`
+(mean-field recursion) at 2026's actual lottery-only picks (96 M / 114 F).
+Sanity check passed: `sum(odds)` == `n_picks` for both formulas, both pools.
+Outputs: `sim_results/odds_shift_comparison.csv` (per-applicant),
+`sim_results/odds_shift_by_profile.csv` (bucketed by pool x previous-apps x
+raw-finishes), `sim_results/odds_shift_scatter.png` (every applicant's odds,
+Original vs Boosted, by pool).
+
+**Findings:**
+- Both formulas sum to the same picks by construction -- this redistributes
+  odds within a pool, it doesn't change the pool's total. The scatter is
+  mostly near the diagonal; most individual shifts are a few points either
+  way, with a longer tail among men (more n/finish/service combinations).
+- **Biggest structural driver: Original's service term is additive, Boosted's
+  is multiplicative.** `mult*log(s+1)` is added on top of `exp^(n+k+1)`
+  regardless of n, so for a low-n applicant (small base ticket count) any
+  service credit is a huge *relative* boost; for a high-n veteran the same
+  raw service credit barely moves the needle. Boosted's `v+t` scales
+  `b^n` itself, so a given v/t level is close to the same *percentage* boost
+  at any n. Net effect: low-n applicants with real trailwork/volunteer
+  totals (e.g. a first-time female applicant with 5 trailwork shifts, 0
+  volunteer) lose under Boosted (odds -21pp in one case) because Boosted's
+  t_cap (0.5, i.e. +50% at most) is a much smaller prize than what the
+  uncapped log term was handing them; meanwhile veterans with real
+  cumulative volunteering (e.g. a 3-prior-apps man with 30 cumulative
+  volunteer shifts) gain substantially (+26-30pp in several cases) because
+  that credit now compounds with `b^n` instead of being squashed by `log`.
+- **3+-time finishers lose the most of any group** (-26pp for two men with 2
+  prior apps and 3 lifetime finishes): this is Boosted's bonus-per-finish
+  table working exactly as designed (1 finish = +100%, 2 = +50%, 3+ = only
+  +10%, deliberately NOT a ramp-up) -- Original's ramp instead gives 3-finish
+  veterans its maximum k (the formula's cap, hit exactly at ramp length 3).
+  Consistent with Caleb's original ask to "temper the previous-finish boost,"
+  though Boosted goes further than Original's floor-based tempering: a
+  single-time finisher is now worth noticeably more than a 3-time veteran,
+  not just capped at the same ceiling.
+- Bucketed summary (`odds_shift_by_profile.csv`) shows this pattern
+  consistently across pool x n x finishes cells: the shift is close to 0 for
+  the bulk of each pool at low cumulative-v (the majority with cum_v near 0),
+  and grows in magnitude with cumulative v, trailwork, or raw finish count --
+  exactly the three terms that behave differently between the two formulas.
+
+No change to Garret's earlier decision pending here -- this is purely the
+requested summary, not a recommendation to adopt Boosted over Original.
+
 ## 2026-11-02 (3) — Exponent/Base default unified at 2 for both formulas
 
 Small follow-up to entry (2) below: "Boosted" used to nudge the shared

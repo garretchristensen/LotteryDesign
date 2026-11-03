@@ -101,8 +101,10 @@ simulate_odds <- function(tickets, n_picks, n_sim = 100000) {
 # 2026-10-13 (Max Boost slider): added the `k_cap` parameter so the cap
 # itself can be made adjustable (via a "Max finish-bonus boost
 # (multiplier)" slider) instead of the hardcoded cap derived from
-# ramp/0.5. garret_k_cap() below computes this cap for both remaining
-# formula families (see its header comment for how the two differ). See ANALYSIS_LOG.md's 2026-10-13 entries for the derivation.
+# ramp/0.5. garret_k_cap() below computes this cap for "current" (the only
+# family that still uses this ramp/floor/cap mechanic -- "boost" reads k
+# directly off derive_k_boosted() instead, see its header comment). See
+# ANALYSIS_LOG.md's 2026-10-13 entries for the derivation.
 #
 # The `ramp`/`floor` defaults below reproduce today's exact rule, so any
 # caller that doesn't pass them explicitly (or the sidebar's k_ramp/k_floor
@@ -132,34 +134,33 @@ derive_k_from_finishes <- function(previous_finishes, ramp = 3, floor_val = 0.5,
          floor_val)
 }
 
-# garret_k_cap(): the one place that turns whatever cap control is on
-# screen into the unit derive_k_from_finishes() actually needs for the
-# selected formula family. Centralizing this here means every
-# derive_k_from_finishes() call site (ticketFormula, kRampPlot,
-# base_data(), userTickets) computes the cap identically -- a second,
-# slightly-different copy of this logic at each call site is exactly the
-# kind of drift this app's existing "one shared function per concept"
-# convention is meant to avoid.
-#
-# The two remaining families use entirely different controls for this,
-# because k enters them differently:
-#   - "current"  exp_val ^ (n + k + 1) + ...  -- k is an EXPONENT, sharing
-#                the same base as n (the "Exponent / Base" slider, `exp_val`,
-#                production default 2). The "Max finish-bonus boost
-#                (multiplier)" slider sets this in the intuitive "Nx" unit
-#                (e.g. 2.83x means "finishes alone can at most multiply
-#                your tickets by 2.83"); the cap in k's own (exponent)
-#                units is log_{exp_val}(max_boost).
-#   - "boost"    exp_val ^ n * (1 + k + s)    -- k is LINEAR (added to 1,
-#                alongside v and t), not an exponent, and -- per Garret's
-#                2026-11-02 feedback -- deliberately NOT run through any
-#                multiplier/log abstraction: k_cap_boost is a slider in k's
-#                own native units (0-2, default 1.5 -- today's exact
-#                production ceiling, "we don't want to do much more than
-#                double"), passed straight through with no conversion.
-garret_k_cap <- function(family, max_boost, exp_val = 2, k_cap_boost = 1.5) {
-  if (identical(family, "boost")) return(as.numeric(k_cap_boost))
+# garret_k_cap(): turns the "Max finish-bonus boost (multiplier)" slider's
+# intuitive unit (e.g. 2.83x) into the exponent unit derive_k_from_finishes()
+# actually needs, for "current": exp_val ^ (n + k + 1) + ... -- k is an
+# EXPONENT, sharing the same base as n (the "Exponent / Base" slider,
+# `exp_val`, production default 2), so the cap in k's own (exponent) units
+# is log_{exp_val}(max_boost). Only ever called for "current" now --
+# "boost" replaced its own ramp/cap mechanic entirely with
+# derive_k_boosted() below (2026-11-02, per Garret's "simplify the
+# finish-bonus ramp" feedback: direct per-finish-count bonuses instead of a
+# ramp/floor/cap to convert).
+garret_k_cap <- function(max_boost, exp_val = 2) {
   log(as.numeric(max_boost), base = as.numeric(exp_val))
+}
+
+# derive_k_boosted(): "Boosted" family's finish bonus (k), 2026-11-02
+# simplification of the old ramp/floor/cap mechanic. Garret wants this
+# asked for directly, per finish count, rather than computed from a ramp
+# shape: a flat lookup of 0 finishes -> 0, 1 finish -> `bonus_1` (default
+# 1, i.e. 1+k=2, doubling tickets), 2 finishes -> `bonus_2` (default 0.5,
+# +50%), 3+ finishes -> `bonus_3plus` (default 0.1, +10%) -- deliberately
+# NOT monotonic in finishes (1 finish is worth MORE than 2+), per Garret's
+# explicit defaults, unlike "current"'s ramp-up-then-floor shape.
+derive_k_boosted <- function(finishes, bonus_1 = 1, bonus_2 = 0.5, bonus_3plus = 0.1) {
+  finishes <- as.numeric(finishes)
+  ifelse(finishes <= 0, 0,
+         ifelse(finishes == 1, as.numeric(bonus_1),
+                ifelse(finishes == 2, as.numeric(bonus_2), as.numeric(bonus_3plus))))
 }
 
 # reconstruct_2026_raw_finishes(): recovers an approximate RAW lifetime
@@ -344,13 +345,24 @@ ui <- fluidPage(
                   selected = "2026"),
       conditionalPanel(
         condition = "input.year_select == '2027sim' || input.year_select == '2028sim' || input.year_select == '2029sim' || input.year_select == '2030sim'",
-        helpText(
-          "SIMULATED, not real: one seeded run of generate_synthetic_years.R, ",
-          "advancing the real 2026 pool forward under TODAY'S production ",
-          "formula and 25%/yr growth (bootstrapped rookies, panel-based ",
-          "retention/dormancy -- see that script's header comment). Treat ",
-          "this as one plausible future snapshot to explore hypothetical ",
-          "formulas against, not a forecast."
+        actionLink("toggleSimInfo",
+                   HTML("&#8505;&#65039; More info on the simulated data")),
+        hidden(
+          div(id = "simInfoPanel",
+            helpText(
+              "SIMULATED, not real: one seeded run of ",
+              "generate_synthetic_years.R, advancing the real 2026 pool ",
+              "forward under TODAY'S production formula (bootstrapped ",
+              "rookies, panel-based retention/dormancy -- see that ",
+              "script's header comment). Driven by whichever growth rate ",
+              "the 'Applicant pool growth' dropdown further down is set ",
+              "to (2026-11-02: used to be fixed at 25%/yr regardless of ",
+              "that control; a separate file is pre-generated for each of ",
+              "its three choices). Treat this as one plausible future ",
+              "snapshot to explore hypothetical formulas against, not a ",
+              "forecast."
+            )
+          )
         )
       ),
       sliderInput("exp", "Exponent / Base:", min = 2, max = 5, value = 2, step = 0.5),
@@ -371,29 +383,37 @@ ui <- fluidPage(
       # normal adjustable slider. k, v, and t are now each a separate,
       # independently-capped LINEAR boost added to 1 -- not an exponent --
       # so e.g. k = 1.5 reads directly as "+150% tickets from finishes
-      # alone." k's cap comes from the "Max finish-bonus boost (k)" slider
-      # further down, in k's own native units (0-2, default 1.5 -- NOT
-      # routed through any multiplier/log abstraction, per Garret's
-      # 2026-11-02 feedback), acting through the Finish-Bonus Ramp sliders
-      # (default ramp 2 for this family); v and t get their own scale/cap
-      # controls here, each designed to land in the same "0 to a few"
-      # range as k.
+      # alone." k now comes directly from the three "bonus for N finishes"
+      # inputs in the Finish-Bonus Ramp section further down (2026-11-02:
+      # replaced the old ramp/floor/cap mechanic for this family entirely
+      # -- see derive_k_boosted()'s header comment); v and t get their own
+      # scale/cap controls here, each designed to land in the same "0 to a
+      # few" range as k.
+      #
+      # The explanatory helpText here is collapsible (2026-11-02, per
+      # Garret's feedback), same show/hide idiom as every other collapsible
+      # section in this file (toggleKRampInfo/kRampInfoPanel, etc.).
       conditionalPanel(
         condition = "input.formula_family == 'boost'",
-        helpText(
-          "b (the base above) controls only how steeply waiting (n) matters. ",
-          "k, volunteering, and trailwork are each a separate boost added to ",
-          "1 -- e.g. a total of 1+k+v+t = 2.5 means +150% tickets versus b^n ",
-          "alone. k is capped by the 'Max finish-bonus boost (k)' slider ",
-          "further down (acting through the Finish-Bonus Ramp sliders -- ",
-          "default ramp 2 for this family). Volunteer and trailwork points ",
-          "get their own scale/cap controls here, independent of k:"
+        actionLink("toggleBoostInfo",
+                   HTML("&#8505;&#65039; More info on the Boosted formula")),
+        hidden(
+          div(id = "boostInfoPanel",
+            helpText(
+              "b (the base above) controls only how steeply waiting (n) ",
+              "matters. k, volunteering, and trailwork are each a separate ",
+              "boost added to 1 -- e.g. a total of 1+k+v+t = 2.5 means ",
+              "+150% tickets versus b^n alone. k comes from the 'bonus for ",
+              "N finishes' inputs further down; volunteering and trailwork ",
+              "get their own scale/cap controls here, independent of k:"
+            )
+          )
         ),
-        sliderInput("v_scale", "Volunteer scale (points per +1 of boost, before the cap below):",
+        sliderInput("v_scale", "Volunteer scale (shifts per +1 of boost, before the cap below):",
                     min = 1, max = 20, value = 4, step = 1),
         sliderInput("v_cap", "Volunteer cap (max boost contribution from volunteering, ever):",
                     min = 0, max = 4, value = 2, step = 0.25),
-        sliderInput("t_scale", "Trailwork scale (points per +1 of boost, before the cap below):",
+        sliderInput("t_scale", "Trailwork scale (shifts per +1 of boost, before the cap below):",
                     min = 1, max = 20, value = 8, step = 1),
         sliderInput("t_cap", "Trailwork cap (max boost contribution from trailwork, ever):",
                     min = 0, max = 4, value = 0.5, step = 0.25)
@@ -414,76 +434,68 @@ ui <- fluidPage(
       # nothing else in this file uses) keeps every collapsible section in
       # the app working the same way.
       actionLink("toggleKRampInfo",
-                 HTML("&#8505;&#65039; More info on the ramp/floor shape")),
+                 HTML("&#8505;&#65039; More info on the finish bonus")),
       hidden(
         div(id = "kRampInfoPanel",
           helpText(
-            "The 'Original' formula's finish bonus (k) ramps up with each ",
-            "lifetime race finish, then deliberately DROPS BACK DOWN to a ",
-            "floor -- so a mega-veteran (think Hardrock 100's 10+-time ",
-            "finishers, who get near-guaranteed entry) never earns more ",
-            "benefit than someone who's finished exactly 'Ramp length' times. ",
-            "These two sliders let you replay that same shape with different ",
-            "knobs. Defaults (ramp = 3, floor = 0.5) exactly reproduce today's ",
-            "production rule -- nothing changes until you move them. A third ",
-            "control sets how high k is allowed to ramp to. For 'Original', ",
-            "that's the 'Max finish-bonus boost (multiplier)' slider, in the ",
-            "intuitive 'Nx' unit: k is still an exponent, so the cap is ",
-            "k_cap = log_b(max_boost), where b is the 'Exponent / Base' ",
-            "slider above (default 2). For 'Boosted', k is LINEAR -- added ",
-            "to 1, alongside v and t -- so instead there's a direct 'Max ",
-            "finish-bonus boost (k)' slider in k's own units (default 1.5, ",
-            "today's exact production ceiling: 'we don't want to do much ",
-            "more than double' a persistent finisher's tickets from k ",
-            "alone). The per-finish step then becomes cap / Ramp length. ",
-            "The Floor slider is unaffected by either cap -- it still just ",
-            "sets what k drops back down to past the ramp, exactly as before."
+            "'Original' and 'Boosted' compute the finish bonus (k) ",
+            "completely differently now. 'Original''s k ramps up with ",
+            "each lifetime race finish, then deliberately DROPS BACK DOWN ",
+            "to a floor -- so a mega-veteran (think Hardrock 100's ",
+            "10+-time finishers, who get near-guaranteed entry) never ",
+            "earns more benefit than someone who's finished exactly 'Ramp ",
+            "length' times. Its 'Max finish-bonus boost (multiplier)' ",
+            "slider sets how high that ramp is allowed to go, in the ",
+            "intuitive 'Nx' unit: k is still an exponent there, so the cap ",
+            "is k_cap = log_b(max_boost), where b is the 'Exponent / Base' ",
+            "slider above. Defaults (ramp = 3, floor = 0.5, max boost = ",
+            "2^1.5) exactly reproduce today's production rule.",
+            br(), br(),
+            "'Boosted' (2026-11-02: simplified away from a ramp entirely, ",
+            "per Garret's request) just asks directly: how much boost for ",
+            "exactly 1 finish, exactly 2 finishes, or 3-or-more finishes? ",
+            "No ramp, no floor, no cap to convert -- three plain numbers, ",
+            "each read straight into k. Defaults (1 / 0.5 / 0.1) mean a ",
+            "single finish doubles your tickets from k alone (1+1=2), a ",
+            "2nd finish is worth less (+50%), and 3+ finishes less still ",
+            "(+10%) -- deliberately NOT a ramp-up shape."
           )
         )
       ),
-      sliderInput("k_ramp", "Ramp length (finishes until the bonus maxes out):",
-                  min = 1, max = 6, value = 3, step = 1),
-      sliderInput("k_floor", "Floor (k value once past the ramp):",
-                  min = 0, max = 1.5, value = 0.5, step = 0.25),
-      # "Original" and "Boosted" need entirely different k-cap CONTROLS,
-      # not just different units of the same slider (per Garret's
-      # 2026-11-02 feedback: Boosted's k should be a plain, directly
-      # labeled value in k's own units, not routed through a
-      # multiplier/log abstraction) -- so each family gets its own slider,
-      # shown only when selected.
-      #
-      # "Original": unchanged from before. Default value is 2^1.5
-      # (~2.83x), chosen so that, at "Original"'s production defaults
-      # (Exponent/Base = 2, Ramp length = 3), log_2(2^1.5) = 1.5 = 0.5*3
-      # EXACTLY -- i.e. this default reproduces the old hardcoded cap
-      # bit-for-bit, which is why "Original" at its default slider state
-      # still reproduces 2026's Weighted_Finishes exactly (see
+      # "Original": completely unchanged. Default max_boost value is
+      # 2^1.5 (~2.83x), chosen so that, at "Original"'s production
+      # defaults (Exponent/Base = 2, Ramp length = 3), log_2(2^1.5) = 1.5
+      # = 0.5*3 EXACTLY -- i.e. this default reproduces the old hardcoded
+      # cap bit-for-bit, which is why "Original" at its default slider
+      # state still reproduces 2026's Weighted_Finishes exactly (see
       # ANALYSIS_LOG.md's 2026-10-13 regression-test entry).
       conditionalPanel(
         condition = "input.formula_family == 'current'",
+        sliderInput("k_ramp", "Ramp length (finishes until the bonus maxes out):",
+                    min = 1, max = 6, value = 3, step = 1),
+        sliderInput("k_floor", "Floor (k value once past the ramp):",
+                    min = 0, max = 1.5, value = 0.5, step = 0.25),
         sliderInput("max_boost", "Max finish-bonus boost (multiplier):",
-                    min = 1.01, max = 20, value = 2^1.5, step = 0.1),
-        helpText(
-          "Caps k's ramp against the 'Exponent / Base' slider above ",
-          "(k_cap = log_b(max_boost); see the info panel above). Default ",
-          "reproduces today's hardcoded cap exactly."
-        )
+                    min = 1.01, max = 20, value = 2^1.5, step = 0.1)
+        # Caption folded into the collapsible "More info on the finish
+        # bonus" panel above (2026-11-02) -- it already explains k_cap =
+        # log_b(max_boost) and the default's rationale; no need to repeat
+        # it inline every time this slider shows.
       ),
-      # "Boosted": a direct cap in k's own units, 0 to 2, default 1.5 --
-      # matching today's existing production ceiling exactly (the current
-      # formula's k already tops out at 1.5 via ramp=3/floor=0.5). The
-      # range extends slightly past 1.5 only for exploration, same
-      # convention as k_floor's slider above (default 0.5, range to 1.5).
+      # "Boosted": no ramp at all (2026-11-02, per Garret's "simplify the
+      # finish-bonus ramp" feedback) -- just ask for the bonus at each
+      # finish count directly, in k's own native units (see
+      # derive_k_boosted()'s header comment, top of file). Deliberately
+      # NOT monotonic by default: 1 finish is worth MORE than 2 or 3+,
+      # unlike "Original"'s ramp-up shape.
       conditionalPanel(
         condition = "input.formula_family == 'boost'",
-        sliderInput("k_cap_boost", "Max finish-bonus boost (k):",
-                    min = 0, max = 2, value = 1.5, step = 0.1),
-        helpText(
-          "k is capped directly here (no multiplier/log conversion) -- ",
-          "1 + k tops out at 2.5 by default, i.e. finishes alone can at ",
-          "most a bit more than double your tickets, matching today's ",
-          "system."
-        )
+        sliderInput("boost_finish_1", "Bonus for 1 finish:",
+                    min = 0, max = 2, value = 1, step = 0.05),
+        sliderInput("boost_finish_2", "Bonus for 2 finishes:",
+                    min = 0, max = 2, value = 0.5, step = 0.05),
+        sliderInput("boost_finish_3plus", "Bonus for 3 or more finishes:",
+                    min = 0, max = 2, value = 0.1, step = 0.05)
       ),
       plotOutput("kRampPlot", height = "220px"),
       hr(),
@@ -653,45 +665,24 @@ withProgressSimulate <- function(tix, picks, n_sim, label = "Running Monte Carlo
 
 server <- function(input, output, session) {
 
-  # Nudge the shared "Ramp length" (k_ramp) slider to a sensible default
-  # the moment "Boosted" is selected (ramp=2). "Exponent / Base" (b) is
-  # deliberately NOT nudged -- per Garret's 2026-11-02 feedback, its
-  # default is 2 for BOTH formula families (it used to nudge to 3 for
-  # "Boosted" only; that's gone). k_ramp is shared across both formula
-  # families (exactly like "mult" already is, hidden-but-not-reset when
-  # not "current") -- this only sets a starting point on entry to
-  # "Boosted"; it does NOT keep forcing the value back if you then adjust
-  # it, and deliberately does NOT restore it when you switch away,
-  # consistent with how this app already treats every other shared slider
-  # (nothing resets "mult" when you leave "current" either). ignoreInit =
-  # TRUE so this doesn't fire on initial app load (default family is
-  # "current", not "boost"). "max_boost" and "k_cap_boost" each belong to
-  # exactly one family now (see the Finish-Bonus Ramp section's
-  # conditionalPanels), so neither needs nudging -- there's no OTHER
-  # family that could have left either in a stale state.
-  #
-  # Switching back to "current" re-centers Max Boost on k_cap = 0.5 *
-  # (whatever Ramp length currently is) in LOG units against whichever base
-  # the Exponent/Base slider is currently set to -- i.e. landing on exactly
-  # today's old hardcoded cap (see garret_k_cap()'s header comment, top of
-  # file). On a fresh app load (exp=2, k_ramp=3) this is a no-op, since it
-  # reproduces the slider's own built-in initial value of 2^1.5 exactly; it
-  # only does real work if you've already changed k_ramp, e.g. by bouncing
-  # in from "Boosted" first.
-  observeEvent(input$formula_family, {
-    family <- input$formula_family
-    if (identical(family, "boost")) {
-      updateSliderInput(session, "k_ramp", value = 2)
-    } else if (identical(family, "current")) {
-      updateSliderInput(session, "max_boost",
-                         value = as.numeric(input$exp) ^ (0.5 * as.numeric(input$k_ramp)))
-    }
-  }, ignoreInit = TRUE)
+  # 2026-11-02: "k_ramp"/"k_floor"/"max_boost" moved into "current"'s own
+  # conditionalPanel and "Boosted" got its own dedicated, fixed-default
+  # finish-bonus sliders (boost_finish_1/2/3plus) -- so there is no longer
+  # any slider SHARED between the two formula families whose default needs
+  # nudging on switch (every one of them now belongs to exactly one
+  # family). The observeEvent that used to live here (nudging k_ramp/
+  # max_boost on entering "Boosted") is gone; nothing replaced it.
 
   observeEvent(input$toggleIntro, { shinyjs::toggle(id = "introPanel") })
   # Garret's UI feedback item 3 (2026-10-13): collapsible finish-bonus-ramp
   # explanation, same toggle idiom as every other collapsible section here.
   observeEvent(input$toggleKRampInfo, { shinyjs::toggle(id = "kRampInfoPanel") })
+  # 2026-11-02: collapsible "More info on the Boosted formula" explanation,
+  # same idiom.
+  observeEvent(input$toggleBoostInfo, { shinyjs::toggle(id = "boostInfoPanel") })
+  # 2026-11-02: collapsible "More info on the simulated data" explainer,
+  # same idiom.
+  observeEvent(input$toggleSimInfo, { shinyjs::toggle(id = "simInfoPanel") })
   observeEvent(input$toggleAvgOdds, { shinyjs::toggle(id = "avgOddsPanel") })
   observeEvent(input$toggleOdds, { shinyjs::toggle(id = "oddsPanel") })
   observeEvent(input$toggleOddsDist, { shinyjs::toggle(id = "oddsDistPanel") })
@@ -724,10 +715,15 @@ server <- function(input, output, session) {
     family <- input$formula_family
     toggles <- input$odds_toggles
     apps <- input$apps
-    # exp_val doubles as the base for "current"'s k exponent; garret_k_cap()
-    # treats "boost"'s k_cap as linear instead (see its header comment).
-    k_val <- derive_k_from_finishes(input$finishes, input$k_ramp, input$k_floor,
-                                     k_cap = garret_k_cap(family, input$max_boost, exp_val, input$k_cap_boost))
+    # "current" ramps k from a raw finish count via the ramp/floor/cap
+    # mechanic; "boost" reads k directly off the three "bonus for N
+    # finishes" sliders (derive_k_boosted() -- no ramp to compute).
+    k_val <- if (identical(family, "boost")) {
+      derive_k_boosted(input$finishes, input$boost_finish_1, input$boost_finish_2, input$boost_finish_3plus)
+    } else {
+      derive_k_from_finishes(input$finishes, input$k_ramp, input$k_floor,
+                              k_cap = garret_k_cap(input$max_boost, exp_val))
+    }
     v_sim <- input$volunteer
     t_sim <- if ("drop_trail" %in% toggles) 0 else input$trailwork
 
@@ -761,14 +757,18 @@ server <- function(input, output, session) {
   # just flattens to a different floor and after a different ramp).
   output$kRampPlot <- renderPlot({
     finishes <- 0:10
-    # "Your settings" needs the Max Boost-derived cap too, so the plot
-    # matches what the formula actually uses (same garret_k_cap() helper as
-    # every other derive_k_from_finishes() call site).
+    # "Your settings" means something different per family now: "current"
+    # still ramps via k_ramp/k_floor/max_boost; "boost" reads k straight
+    # off the three "bonus for N finishes" sliders (no ramp to compute).
+    your_k <- if (identical(input$formula_family, "boost")) {
+      derive_k_boosted(finishes, input$boost_finish_1, input$boost_finish_2, input$boost_finish_3plus)
+    } else {
+      derive_k_from_finishes(finishes, input$k_ramp, input$k_floor,
+                              k_cap = garret_k_cap(input$max_boost, input$exp))
+    }
     dd <- data.frame(
       finishes = rep(finishes, 2),
-      k = c(derive_k_from_finishes(finishes, 3, 0.5),
-            derive_k_from_finishes(finishes, input$k_ramp, input$k_floor,
-                                    k_cap = garret_k_cap(input$formula_family, input$max_boost, input$exp, input$k_cap_boost))),
+      k = c(derive_k_from_finishes(finishes, 3, 0.5), your_k),
       which = rep(c("Current production rule (ramp 3, floor 0.5)", "Your settings"),
                   each = length(finishes))
     )
@@ -800,15 +800,20 @@ server <- function(input, output, session) {
   # function unconditionally looked for Previous_Finishes, so selecting
   # "2026" in the Data Year dropdown crashed the whole app.
   base_data <- reactive({
+    # Simulated years depend on the "Applicant pool growth" dropdown (down
+    # in the Multi-Year Projection section -- same input$growth_rate it
+    # already drives there, values "10"/"25"/"30") per Garret's 2026-11-02
+    # feedback: generate_synthetic_years.R pre-generates one file PER
+    # (year, growth rate) combination, so picking a different growth rate
+    # here switches which pre-generated pool loads, instead of always
+    # showing the one baked in at 25%/yr.
+    sim_year <- sub("sim$", "", input$year_select)
     fname <- switch(input$year_select,
                     "2026" = "2026HLdata.csv",
                     "2025" = "2025HLdata.csv",
                     "2024" = "2024HLdata.csv",
                     "2023" = "2023HLdata.csv",
-                    "2027sim" = "synthetic_2027HLdata.csv",
-                    "2028sim" = "synthetic_2028HLdata.csv",
-                    "2029sim" = "synthetic_2029HLdata.csv",
-                    "2030sim" = "synthetic_2030HLdata.csv")
+                    sprintf("synthetic_%s_g%02dHLdata.csv", sim_year, as.numeric(input$growth_rate)))
     df <- read.csv(fname, stringsAsFactors = FALSE)
 
     # 2026 is the only file with a Status column, and it includes 40
@@ -828,17 +833,23 @@ server <- function(input, output, session) {
       # reconstruct_2026_raw_finishes()'s header comment for the full
       # investigation/rationale -- short version: use the panel's own
       # observed race finishes, NOT panel_prior_wins, to unmask 4+-time
-      # veterans hiding in the 0.5 floor bucket) so the k_ramp/k_floor
-      # sliders below have real raw material to work with on this year's
-      # data too, not just on 2023-2025's native Previous_Finishes column.
+      # veterans hiding in the 0.5 floor bucket) so "Original"'s
+      # k_ramp/k_floor sliders and "Boosted"'s bonus-per-finish sliders
+      # both have real raw material to work with on this year's data too,
+      # not just on 2023-2025's native Previous_Finishes column.
       df$Weighted_Finishes <- as.numeric(df$Weighted_Finishes)
       df$Previous_Finishes <- reconstruct_2026_raw_finishes(df$Weighted_Finishes, df$runner_id)
-      df$k <- derive_k_from_finishes(df$Previous_Finishes, input$k_ramp, input$k_floor,
-                                      k_cap = garret_k_cap(input$formula_family, input$max_boost, input$exp, input$k_cap_boost))
     } else {
       df$Previous_Finishes <- as.numeric(df$Previous_Finishes)
-      df$k <- derive_k_from_finishes(df$Previous_Finishes, input$k_ramp, input$k_floor,
-                                      k_cap = garret_k_cap(input$formula_family, input$max_boost, input$exp, input$k_cap_boost))
+    }
+    # "current" ramps k from the raw finish count; "boost" reads k
+    # directly off the three "bonus for N finishes" sliders -- see
+    # derive_k_boosted()'s header comment, top of file.
+    df$k <- if (identical(input$formula_family, "boost")) {
+      derive_k_boosted(df$Previous_Finishes, input$boost_finish_1, input$boost_finish_2, input$boost_finish_3plus)
+    } else {
+      derive_k_from_finishes(df$Previous_Finishes, input$k_ramp, input$k_floor,
+                              k_cap = garret_k_cap(input$max_boost, input$exp))
     }
 
     df <- df %>% mutate(
@@ -860,8 +871,12 @@ server <- function(input, output, session) {
   # as base_data(), applied to the hypothetical example applicant instead
   # of the real data).
   output$userTickets <- renderText({
-    k_sim <- derive_k_from_finishes(input$finishes, input$k_ramp, input$k_floor,
-                                     k_cap = garret_k_cap(input$formula_family, input$max_boost, input$exp, input$k_cap_boost))
+    k_sim <- if (identical(input$formula_family, "boost")) {
+      derive_k_boosted(input$finishes, input$boost_finish_1, input$boost_finish_2, input$boost_finish_3plus)
+    } else {
+      derive_k_from_finishes(input$finishes, input$k_ramp, input$k_floor,
+                              k_cap = garret_k_cap(input$max_boost, input$exp))
+    }
     v_sim <- pmin(input$volunteer, 30)
     t_sim <- pmin(input$trailwork, 10)
     s_sim <- apply_service_toggles(v_sim, t_sim, input$odds_toggles,
