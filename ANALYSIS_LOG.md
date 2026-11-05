@@ -4,6 +4,52 @@ Running notes on the lottery-redesign analysis. Newest entry first.
 
 ---
 
+## 2026-11-05 — Email-shareable Current-vs-New odds summary for Caleb
+
+Garret wanted a plain-language Current (production) vs. New (Boosted)
+odds comparison he could send Caleb directly, at each formula's dashboard
+defaults on the real 2026 pool. Built as a one-off artifact (not part of
+the app): `https://claude.ai/artifact/7qFVp9FexoBdZ8pDM9p4XU`.
+
+**Group selection:** started from three thin-sample profiles (no boosts,
+exactly 2 finishers, exactly 3-shift volunteers -- 9 to 14 people each),
+then redone per Garret's request at larger, more representative groups:
+"no boosts" (0 finishes, 0 cumulative volunteer, 0 this-year trailwork --
+967 people), "already finishers" (any raw finish count, bucketed 1/2/3+ --
+110 people), "volunteers" (any cumulative volunteer credit, bucketed by
+size -- 134 people, 11.0% of the pool), "did trailwork this year" (any
+this-year trailwork credit, bucketed by size -- 58 people, 4.8%). Shown by
+years-applying out to 4 (not 3), since a formula change can't move every
+applicant down -- some have to gain to balance the pool's fixed pick count.
+
+**Important correction caught by Garret:** v (volunteer) and t (trailwork)
+are NOT both single-year-only in the New/Boosted formula -- only t resets
+each year; v is cumulative across years until the applicant draws in. The
+first draft of this summary used 2026's own `Volunteer_Points` for both
+formulas' service term, which is correct for Current (production has
+always been single-year) but wrong for New's v. Re-derived v using the
+same cross-year name-matched cumulative total `odds_shift_comparison.R`
+already builds (2022-2026), confirming the design intent already logged in
+2026-11-02 (4). t stays single-year for both formulas. Scratch scripts:
+`odds_summary.R` -> `odds_summary2.R` (group refinement) ->
+`odds_summary3.R` (final, cumulative-v fix) -- all in session scratch, not
+committed to the repo.
+
+**Zero-sum check (Garret's prompt: "ALL odds can't go down, somebody's have
+to go up?"):** confirmed exactly -- within each pool, `sum(New_Odds) ==
+sum(Current_Odds) == that pool's pick count` (66 M / 92 F lottery picks
+after the 2026 preselects, at default Nm=95/Nw=103). Men's total odds*100
+shift is -284.1 among the "no boosts" baseline, offset by +284.1 across the
+other groups combined; women's is the mirror (+42 / -42). Reported in the
+artifact alongside the group tables.
+
+Also updated `README.md` with a direct link to the deployed app
+(`https://garretchristensen.shinyapps.io/LotteryDesign/`), now that it's
+published to shinyapps.io.
+
+No change to Garret's earlier decision pending here -- this is a
+communication artifact for Caleb, not a new recommendation.
+
 ## 2026-11-02 (4) — Odds shift, Original vs Boosted, on the real 2026 pool
 
 Garret asked for a summary of how draw odds shift between today's production
